@@ -46,47 +46,107 @@ class ClientController extends Controller
 
     public function store(Request $request)
     {
-        $request->validate([
+        $validated = $request->validate([
             'first_name' => 'required|string|max:255',
             'last_name' => 'required|string|max:255',
             'email' => 'required|email|max:255|unique:clients,email',
             'phone' => 'required|string|max:20',
             'date_of_birth' => 'required|date',
             'gender' => 'required|in:male,female,other',
+            'marital_status' => 'nullable|in:single,married,divorced,widowed',
+            'identification_type' => 'required|string',
+            'identification_number' => 'required|string|max:100',
+            'occupation' => 'required|string|max:255',
+            'employer' => 'nullable|string|max:255',
+            'employee_number' => 'nullable|string|max:100',
+            'tax_number' => 'nullable|string|max:100',
+            'monthly_income' => 'required|numeric|min:0',
+            'primary_phone_country' => 'nullable|string|max:10',
+            'secondary_phone' => 'nullable|string|max:20',
+            'secondary_phone_country' => 'nullable|string|max:10',
             'address' => 'required|string|max:500',
             'city' => 'required|string|max:100',
             'state' => 'required|string|max:100',
-            'country' => 'required|string|max:100',
-            'occupation' => 'required|string|max:255',
-            'monthly_income' => 'required|numeric|min:0',
+            'zip_code' => 'required|string|max:20',
             'branch_id' => 'required|exists:branches,id',
+            'avatar' => 'nullable|image|mimes:jpeg,jpg,png|max:10240',
+            'borrower_files.*' => 'nullable|file|mimes:jpeg,jpg,png,gif,pdf|max:10240',
+            'kin_first_name.*' => 'nullable|string|max:255',
+            'kin_last_name.*' => 'nullable|string|max:255',
+            'kin_relationship.*' => 'nullable|string|max:100',
+            'kin_phone.*' => 'nullable|string|max:20',
+            'kin_email.*' => 'nullable|email|max:255',
+            'kin_address.*' => 'nullable|string|max:500',
         ]);
 
         DB::beginTransaction();
         try {
+            // Handle avatar upload
+            $avatarPath = null;
+            if ($request->hasFile('avatar')) {
+                $avatarPath = $request->file('avatar')->store('avatars', 'public');
+            }
+
+            // Handle borrower files
+            $files = [];
+            if ($request->hasFile('borrower_files')) {
+                foreach ($request->file('borrower_files') as $file) {
+                    $files[] = $file->store('borrower-files', 'public');
+                }
+            }
+
             $client = Client::create([
                 'client_number' => $this->generateClientNumber(),
-                'first_name' => $request->first_name,
-                'last_name' => $request->last_name,
-                'email' => $request->email,
-                'phone' => $request->phone,
-                'date_of_birth' => $request->date_of_birth,
-                'gender' => $request->gender,
-                'address' => $request->address,
-                'city' => $request->city,
-                'state' => $request->state,
-                'country' => $request->country,
-                'occupation' => $request->occupation,
-                'monthly_income' => $request->monthly_income,
+                'first_name' => $validated['first_name'],
+                'last_name' => $validated['last_name'],
+                'email' => $validated['email'],
+                'phone' => $validated['phone'],
+                'primary_phone_country' => $validated['primary_phone_country'] ?? 'US',
+                'secondary_phone' => $validated['secondary_phone'] ?? null,
+                'secondary_phone_country' => $validated['secondary_phone_country'] ?? null,
+                'date_of_birth' => $validated['date_of_birth'],
+                'gender' => $validated['gender'],
+                'marital_status' => $validated['marital_status'] ?? 'single',
+                'identification_type' => $validated['identification_type'],
+                'identification_number' => $validated['identification_number'],
+                'address' => $validated['address'],
+                'city' => $validated['city'],
+                'state' => $validated['state'],
+                'zip_code' => $validated['zip_code'],
+                'country' => 'United States',
+                'occupation' => $validated['occupation'],
+                'employer' => $validated['employer'] ?? null,
+                'employee_number' => $validated['employee_number'] ?? null,
+                'tax_number' => $validated['tax_number'] ?? null,
+                'monthly_income' => $validated['monthly_income'],
+                'avatar' => $avatarPath,
+                'files' => !empty($files) ? json_encode($files) : null,
                 'status' => 'active',
                 'kyc_status' => 'pending',
-                'branch_id' => $request->branch_id,
+                'branch_id' => $validated['branch_id'],
                 'created_by' => auth()->id(),
             ]);
 
+            // Create Next of Kin records
+            if ($request->has('kin_first_name')) {
+                foreach ($request->kin_first_name as $index => $firstName) {
+                    if ($firstName) {
+                        \App\Models\NextOfKin::create([
+                            'client_id' => $client->id,
+                            'first_name' => $firstName,
+                            'last_name' => $request->kin_last_name[$index] ?? '',
+                            'relationship' => $request->kin_relationship[$index] ?? '',
+                            'phone' => $request->kin_phone[$index] ?? '',
+                            'email' => $request->kin_email[$index] ?? null,
+                            'address' => $request->kin_address[$index] ?? null,
+                        ]);
+                    }
+                }
+            }
+
             DB::commit();
             return redirect()->route('clients.show', $client)
-                ->with('success', 'Client created successfully.');
+                ->with('success', 'Client created successfully with all details.');
         } catch (\Exception $e) {
             DB::rollback();
             return back()->withInput()->with('error', 'Error creating client: ' . $e->getMessage());

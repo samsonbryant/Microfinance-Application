@@ -5,13 +5,59 @@
 @section('content')
 <!-- Page Header -->
 <div class="page-header">
-    <h1 class="page-title">Client Details</h1>
-    <p class="page-subtitle">Client: {{ $client->client_number }}</p>
+    <div class="d-flex justify-content-between align-items-center">
+        <div>
+            <h1 class="page-title"><i class="fas fa-user me-2"></i>{{ $client->full_name }}</h1>
+            <p class="page-subtitle">Client #{{ $client->client_number }}</p>
+        </div>
+        <div>
+            <a href="{{ route('clients.index') }}" class="btn btn-secondary">
+                <i class="fas fa-arrow-left me-1"></i>Back to Clients
+            </a>
+            <a href="{{ route('clients.edit', $client) }}" class="btn btn-primary">
+                <i class="fas fa-edit me-1"></i>Edit Client
+            </a>
+            <form action="{{ route('clients.destroy', $client) }}" method="POST" class="d-inline" onsubmit="return confirm('Are you sure you want to delete this client? This will also delete all associated loans and savings.')">
+                @csrf
+                @method('DELETE')
+                <button type="submit" class="btn btn-danger">
+                    <i class="fas fa-trash me-1"></i>Delete
+                </button>
+            </form>
+        </div>
+    </div>
 </div>
 
 <div class="row">
     <!-- Client Information -->
     <div class="col-lg-8">
+        <!-- Profile Header with Avatar -->
+        <div class="card shadow mb-4 border-0">
+            <div class="card-body bg-gradient-primary text-white">
+                <div class="d-flex align-items-center">
+                    <div class="me-4">
+                        @if($client->avatar)
+                            <img src="{{ Storage::url($client->avatar) }}" alt="Avatar" 
+                                 class="rounded-circle" style="width: 100px; height: 100px; object-fit: cover; border: 4px solid white;">
+                        @else
+                            <div class="rounded-circle bg-white text-primary d-flex align-items-center justify-content-center" 
+                                 style="width: 100px; height: 100px; font-size: 3rem;">
+                                <i class="fas fa-user"></i>
+                            </div>
+                        @endif
+                    </div>
+                    <div class="flex-grow-1">
+                        <h3 class="mb-2"><strong>{{ $client->full_name }}</strong></h3>
+                        <p class="mb-1"><i class="fas fa-id-card me-2"></i>{{ $client->identification_type ?? 'N/A' }}: {{ $client->identification_number ?? 'N/A' }}</p>
+                        <p class="mb-1"><i class="fas fa-briefcase me-2"></i>{{ ucfirst($client->occupation) }}
+                            @if($client->employer) at {{ $client->employer }}@endif
+                        </p>
+                        <p class="mb-0"><i class="fas fa-map-marker-alt me-2"></i>{{ $client->city }}, {{ $client->state }}</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+
         <div class="card shadow mb-4">
             <div class="card-header py-3">
                 <h6 class="m-0 font-weight-bold text-primary">Personal Information</h6>

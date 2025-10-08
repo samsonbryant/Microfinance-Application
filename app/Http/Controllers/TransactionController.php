@@ -141,13 +141,28 @@ class TransactionController extends Controller
 
     public function approve(Transaction $transaction)
     {
-        $transaction->update(['status' => 'approved']);
+        $transaction->update([
+            'status' => 'completed',
+            'processed_at' => now()
+        ]);
         return back()->with('success', 'Transaction approved successfully.');
+    }
+
+    public function reject(Transaction $transaction)
+    {
+        $transaction->update([
+            'status' => 'failed',
+            'processed_at' => now()
+        ]);
+        return back()->with('success', 'Transaction rejected successfully.');
     }
 
     public function reverse(Transaction $transaction)
     {
-        $transaction->update(['status' => 'reversed']);
+        $transaction->update([
+            'status' => 'cancelled',
+            'processed_at' => now()
+        ]);
         return back()->with('success', 'Transaction reversed successfully.');
     }
 

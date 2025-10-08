@@ -2,9 +2,11 @@
 
 namespace App\Services;
 
-use App\Models\GeneralLedger;
-use App\Models\Transaction;
+use App\Models\GeneralLedgerEntry;
 use App\Models\ChartOfAccount;
+use App\Models\Loan;
+use App\Models\SavingsAccount;
+use App\Models\Transaction;
 use Illuminate\Support\Facades\DB;
 
 class AccountingService
@@ -12,29 +14,42 @@ class AccountingService
     /**
      * Create double-entry accounting entries
      */
-    public function createDoubleEntry($debitAccount, $creditAccount, $amount, $description, $referenceId = null, $referenceType = null)
+    public function createDoubleEntry($debitAccountId, $creditAccountId, $amount, $description, $referenceId = null, $referenceType = null, $branchId = null, $userId = null, $transactionDate = null)
     {
-        DB::transaction(function () use ($debitAccount, $creditAccount, $amount, $description, $referenceId, $referenceType) {
+        $entryNumber = GeneralLedgerEntry::generateEntryNumber();
+        $transactionDate = $transactionDate ?? now()->toDateString();
+        
+        DB::transaction(function () use ($debitAccountId, $creditAccountId, $amount, $description, $referenceId, $referenceType, $branchId, $userId, $transactionDate, $entryNumber) {
             // Debit entry
-            GeneralLedger::create([
-                'account_id' => $debitAccount,
+            GeneralLedgerEntry::create([
+                'entry_number' => $entryNumber,
+                'account_id' => $debitAccountId,
+                'branch_id' => $branchId,
+                'user_id' => $userId,
+                'transaction_date' => $transactionDate,
                 'debit' => $amount,
                 'credit' => 0,
                 'description' => $description,
-                'reference_id' => $referenceId,
                 'reference_type' => $referenceType,
-                'transaction_date' => now(),
+                'reference_id' => $referenceId,
+                'status' => 'approved',
+                'approved_at' => now(),
             ]);
 
             // Credit entry
-            GeneralLedger::create([
-                'account_id' => $creditAccount,
+            GeneralLedgerEntry::create([
+                'entry_number' => $entryNumber,
+                'account_id' => $creditAccountId,
+                'branch_id' => $branchId,
+                'user_id' => $userId,
+                'transaction_date' => $transactionDate,
                 'debit' => 0,
                 'credit' => $amount,
                 'description' => $description,
-                'reference_id' => $referenceId,
                 'reference_type' => $referenceType,
-                'transaction_date' => now(),
+                'reference_id' => $referenceId,
+                'status' => 'approved',
+                'approved_at' => now(),
             ]);
         });
     }
@@ -42,10 +57,10 @@ class AccountingService
     /**
      * Process loan disbursement accounting
      */
-    public function processLoanDisbursement($loan, $amount)
+    public function processLoanDisbursement($loan, $amount, $branchId = null, $userId = null)
     {
-        $loanReceivableAccount = ChartOfAccount::where('code', '1200')->first(); // Loan Receivable
-        $cashAccount = ChartOfAccount::where('code', '1000')->first(); // Cash
+        $loanReceivableAccount = ChartOfAccount::where('code', '1200')->first(); // Loan Portfolio
+        $cashAccount = ChartOfAccount::where('code', '1000')->first(); // Cash on Hand
 
         if ($loanReceivableAccount && $cashAccount) {
             $this->createDoubleEntry(
@@ -54,7 +69,9 @@ class AccountingService
                 $amount,
                 "Loan disbursement - {$loan->loan_number}",
                 $loan->id,
-                'App\\Models\\Loan'
+                'loan',
+                $branchId,
+                $userId
             );
         }
     }
@@ -62,64 +79,79 @@ class AccountingService
     /**
      * Process loan repayment accounting
      */
-    public function processLoanRepayment($loan, $amount, $principalAmount, $interestAmount)
+    public function processLoanRepayment($loan, $principalAmount, $interestAmount, $penaltyAmount = 0, $branchId = null, $userId = null)
     {
-        $cashAccount = ChartOfAccount::where('code', '1000')->first(); // Cash
-        $loanReceivableAccount = ChartOfAccount::where('code', '1200')->first(); // Loan Receivable
-        $interestIncomeAccount = ChartOfAccount::where('code', '4000')->first(); // Interest Income
+        $cashAccount = ChartOfAccount::where('code', '1000')->first(); // Cash on Hand
+        $loanReceivableAccount = ChartOfAccount::where('code', '1200')->first(); // Loan Portfolio
+        $interestIncomeAccount = ChartOfAccount::where('code', '4000')->first(); // Loan Interest Income
+        $penaltyIncomeAccount = ChartOfAccount::where('code', '4100')->first(); // Penalty Income
 
         if ($cashAccount && $loanReceivableAccount && $interestIncomeAccount) {
-            // Credit cash
-            GeneralLedger::create([
-                'account_id' => $cashAccount->id,
-                'debit' => 0,
-                'credit' => $amount,
-                'description' => "Loan repayment - {$loan->loan_number}",
-                'reference_id' => $loan->id,
-                'reference_type' => 'App\\Models\\Loan',
-                'transaction_date' => now(),
-            ]);
+            // Cash received (Debit)
+            // Loan Portfolio reduced (Credit)
+            if ($principalAmount > 0) {
+                $this->createDoubleEntry(
+                    $cashAccount->id,
+                    $loanReceivableAccount->id,
+                    $principalAmount,
+                    "Loan principal repayment - {$loan->loan_number}",
+                    $loan->id,
+                    'loan_repayment',
+                    $branchId,
+                    $userId
+                );
+            }
 
-            // Debit loan receivable (principal)
-            GeneralLedger::create([
-                'account_id' => $loanReceivableAccount->id,
-                'debit' => $principalAmount,
-                'credit' => 0,
-                'description' => "Principal repayment - {$loan->loan_number}",
-                'reference_id' => $loan->id,
-                'reference_type' => 'App\\Models\\Loan',
-                'transaction_date' => now(),
-            ]);
+            // Cash received (Debit)
+            // Interest Income (Credit)
+            if ($interestAmount > 0) {
+                $this->createDoubleEntry(
+                    $cashAccount->id,
+                    $interestIncomeAccount->id,
+                    $interestAmount,
+                    "Interest payment - {$loan->loan_number}",
+                    $loan->id,
+                    'loan_repayment',
+                    $branchId,
+                    $userId
+                );
+            }
 
-            // Debit interest income (interest)
-            GeneralLedger::create([
-                'account_id' => $interestIncomeAccount->id,
-                'debit' => $interestAmount,
-                'credit' => 0,
-                'description' => "Interest income - {$loan->loan_number}",
-                'reference_id' => $loan->id,
-                'reference_type' => 'App\\Models\\Loan',
-                'transaction_date' => now(),
-            ]);
+            // Cash received (Debit)
+            // Penalty Income (Credit)
+            if ($penaltyAmount > 0 && $penaltyIncomeAccount) {
+                $this->createDoubleEntry(
+                    $cashAccount->id,
+                    $penaltyIncomeAccount->id,
+                    $penaltyAmount,
+                    "Penalty payment - {$loan->loan_number}",
+                    $loan->id,
+                    'loan_repayment',
+                    $branchId,
+                    $userId
+                );
+            }
         }
     }
 
     /**
      * Process savings deposit accounting
      */
-    public function processSavingsDeposit($savingsAccount, $amount)
+    public function processSavingsDeposit($savingsAccount, $amount, $branchId = null, $userId = null)
     {
-        $cashAccount = ChartOfAccount::where('code', '1000')->first(); // Cash
-        $savingsLiabilityAccount = ChartOfAccount::where('code', '2000')->first(); // Savings Liability
+        $cashAccount = ChartOfAccount::where('code', '1000')->first(); // Cash on Hand
+        $clientSavingsAccount = ChartOfAccount::where('code', '2000')->first(); // Client Savings
 
-        if ($cashAccount && $savingsLiabilityAccount) {
+        if ($cashAccount && $clientSavingsAccount) {
             $this->createDoubleEntry(
                 $cashAccount->id,
-                $savingsLiabilityAccount->id,
+                $clientSavingsAccount->id,
                 $amount,
                 "Savings deposit - {$savingsAccount->account_number}",
                 $savingsAccount->id,
-                'App\\Models\\SavingsAccount'
+                'savings_deposit',
+                $branchId,
+                $userId
             );
         }
     }
@@ -127,19 +159,131 @@ class AccountingService
     /**
      * Process savings withdrawal accounting
      */
-    public function processSavingsWithdrawal($savingsAccount, $amount)
+    public function processSavingsWithdrawal($savingsAccount, $amount, $branchId = null, $userId = null)
     {
-        $savingsLiabilityAccount = ChartOfAccount::where('code', '2000')->first(); // Savings Liability
-        $cashAccount = ChartOfAccount::where('code', '1000')->first(); // Cash
+        $cashAccount = ChartOfAccount::where('code', '1000')->first(); // Cash on Hand
+        $clientSavingsAccount = ChartOfAccount::where('code', '2000')->first(); // Client Savings
 
-        if ($savingsLiabilityAccount && $cashAccount) {
+        if ($cashAccount && $clientSavingsAccount) {
             $this->createDoubleEntry(
-                $savingsLiabilityAccount->id,
+                $clientSavingsAccount->id,
                 $cashAccount->id,
                 $amount,
                 "Savings withdrawal - {$savingsAccount->account_number}",
                 $savingsAccount->id,
-                'App\\Models\\SavingsAccount'
+                'savings_withdrawal',
+                $branchId,
+                $userId
+            );
+        }
+    }
+
+    /**
+     * Process interest accrual for loans (accrual basis)
+     */
+    public function processInterestAccrual($loan, $interestAmount, $branchId = null, $userId = null)
+    {
+        $loanReceivableAccount = ChartOfAccount::where('code', '1200')->first(); // Loan Portfolio
+        $interestIncomeAccount = ChartOfAccount::where('code', '4000')->first(); // Loan Interest Income
+
+        if ($loanReceivableAccount && $interestIncomeAccount) {
+            $this->createDoubleEntry(
+                $loanReceivableAccount->id,
+                $interestIncomeAccount->id,
+                $interestAmount,
+                "Interest accrual - {$loan->loan_number}",
+                $loan->id,
+                'interest_accrual',
+                $branchId,
+                $userId
+            );
+        }
+    }
+
+    /**
+     * Process interest accrual for savings (accrual basis)
+     */
+    public function processSavingsInterestAccrual($savingsAccount, $interestAmount, $branchId = null, $userId = null)
+    {
+        $interestExpenseAccount = ChartOfAccount::where('code', '5700')->first(); // Interest Expense (or create new)
+        $interestPayableAccount = ChartOfAccount::where('code', '2100')->first(); // Interest Payable
+
+        if ($interestExpenseAccount && $interestPayableAccount) {
+            $this->createDoubleEntry(
+                $interestExpenseAccount->id,
+                $interestPayableAccount->id,
+                $interestAmount,
+                "Savings interest accrual - {$savingsAccount->account_number}",
+                $savingsAccount->id,
+                'savings_interest_accrual',
+                $branchId,
+                $userId
+            );
+        }
+    }
+
+    /**
+     * Process expense entry accounting
+     */
+    public function processExpenseEntry($expenseAccountId, $amount, $description, $referenceId = null, $referenceType = null, $branchId = null, $userId = null, $transactionDate = null)
+    {
+        $cashAccount = ChartOfAccount::where('code', '1000')->first(); // Cash on Hand
+
+        if ($cashAccount) {
+            $this->createDoubleEntry(
+                $expenseAccountId,
+                $cashAccount->id,
+                $amount,
+                $description,
+                $referenceId,
+                $referenceType,
+                $branchId,
+                $userId,
+                $transactionDate
+            );
+        }
+    }
+
+    /**
+     * Process loan loss provision
+     */
+    public function processLoanLossProvision($amount, $branchId = null, $userId = null)
+    {
+        $loanLossExpenseAccount = ChartOfAccount::where('code', '5700')->first(); // Loan Loss Expense
+        $allowanceForLoanLossAccount = ChartOfAccount::where('code', '1201')->first(); // Allowance for Loan Losses
+
+        if ($loanLossExpenseAccount && $allowanceForLoanLossAccount) {
+            $this->createDoubleEntry(
+                $loanLossExpenseAccount->id,
+                $allowanceForLoanLossAccount->id,
+                $amount,
+                "Loan loss provision",
+                null,
+                'loan_loss_provision',
+                $branchId,
+                $userId
+            );
+        }
+    }
+
+    /**
+     * Process loan write-off
+     */
+    public function processLoanWriteOff($loan, $amount, $branchId = null, $userId = null)
+    {
+        $loanLossExpenseAccount = ChartOfAccount::where('code', '5700')->first(); // Loan Loss Expense
+        $loanReceivableAccount = ChartOfAccount::where('code', '1200')->first(); // Loan Portfolio
+
+        if ($loanLossExpenseAccount && $loanReceivableAccount) {
+            $this->createDoubleEntry(
+                $loanLossExpenseAccount->id,
+                $loanReceivableAccount->id,
+                $amount,
+                "Loan write-off - {$loan->loan_number}",
+                $loan->id,
+                'loan_writeoff',
+                $branchId,
+                $userId
             );
         }
     }
@@ -147,98 +291,32 @@ class AccountingService
     /**
      * Get account balance
      */
-    public function getAccountBalance($accountId)
+    public function getAccountBalance($accountId, $asOfDate = null)
     {
-        $debits = GeneralLedger::where('account_id', $accountId)->sum('debit');
-        $credits = GeneralLedger::where('account_id', $accountId)->sum('credit');
-        
-        return $debits - $credits;
+        return GeneralLedgerEntry::getBalanceForAccount($accountId, $asOfDate);
     }
 
     /**
      * Get trial balance
      */
-    public function getTrialBalance()
+    public function getTrialBalance($asOfDate = null)
     {
-        return ChartOfAccount::with(['generalLedgers' => function($query) {
-            $query->selectRaw('account_id, SUM(debit) as total_debits, SUM(credit) as total_credits')
-                  ->groupBy('account_id');
-        }])->get()->map(function($account) {
-            $debits = $account->generalLedgers->sum('total_debits');
-            $credits = $account->generalLedgers->sum('total_credits');
-            $balance = $debits - $credits;
-            
-            return [
-                'account_code' => $account->code,
-                'account_name' => $account->name,
-                'debits' => $debits,
-                'credits' => $credits,
-                'balance' => $balance,
-            ];
-        });
+        return GeneralLedgerEntry::getTrialBalance($asOfDate);
     }
 
     /**
-     * Get profit and loss statement
+     * Validate double-entry balance
      */
-    public function getProfitAndLoss($startDate, $endDate)
+    public function validateDoubleEntryBalance($entries)
     {
-        $revenue = ChartOfAccount::where('type', 'revenue')
-            ->with(['generalLedgers' => function($query) use ($startDate, $endDate) {
-                $query->whereBetween('transaction_date', [$startDate, $endDate]);
-            }])
-            ->get()
-            ->sum(function($account) {
-                return $account->generalLedgers->sum('credit') - $account->generalLedgers->sum('debit');
-            });
+        $totalDebits = 0;
+        $totalCredits = 0;
 
-        $expenses = ChartOfAccount::where('type', 'expense')
-            ->with(['generalLedgers' => function($query) use ($startDate, $endDate) {
-                $query->whereBetween('transaction_date', [$startDate, $endDate]);
-            }])
-            ->get()
-            ->sum(function($account) {
-                return $account->generalLedgers->sum('debit') - $account->generalLedgers->sum('credit');
-            });
+        foreach ($entries as $entry) {
+            $totalDebits += $entry['debit'] ?? 0;
+            $totalCredits += $entry['credit'] ?? 0;
+        }
 
-        return [
-            'revenue' => $revenue,
-            'expenses' => $expenses,
-            'net_profit' => $revenue - $expenses,
-        ];
-    }
-
-    /**
-     * Get balance sheet
-     */
-    public function getBalanceSheet()
-    {
-        $assets = ChartOfAccount::where('type', 'asset')
-            ->with('generalLedgers')
-            ->get()
-            ->sum(function($account) {
-                return $account->generalLedgers->sum('debit') - $account->generalLedgers->sum('credit');
-            });
-
-        $liabilities = ChartOfAccount::where('type', 'liability')
-            ->with('generalLedgers')
-            ->get()
-            ->sum(function($account) {
-                return $account->generalLedgers->sum('credit') - $account->generalLedgers->sum('debit');
-            });
-
-        $equity = ChartOfAccount::where('type', 'equity')
-            ->with('generalLedgers')
-            ->get()
-            ->sum(function($account) {
-                return $account->generalLedgers->sum('credit') - $account->generalLedgers->sum('debit');
-            });
-
-        return [
-            'assets' => $assets,
-            'liabilities' => $liabilities,
-            'equity' => $equity,
-            'total_liabilities_equity' => $liabilities + $equity,
-        ];
+        return abs($totalDebits - $totalCredits) < 0.01; // Allow for minor rounding differences
     }
 }

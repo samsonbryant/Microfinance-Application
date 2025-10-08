@@ -14,15 +14,27 @@ class Client extends Model
         'last_name',
         'email',
         'phone',
+        'primary_phone_country',
+        'secondary_phone',
+        'secondary_phone_country',
         'date_of_birth',
         'gender',
+        'marital_status',
+        'identification_type',
+        'identification_number',
         'address',
         'city',
         'state',
+        'zip_code',
         'country',
         'occupation',
+        'employer',
+        'employee_number',
+        'tax_number',
         'monthly_income',
         'income_currency',
+        'avatar',
+        'files',
         'kyc_status',
         'status',
         'branch_id',
@@ -32,6 +44,7 @@ class Client extends Model
     protected $casts = [
         'date_of_birth' => 'date',
         'monthly_income' => 'decimal:2',
+        'files' => 'array',
     ];
 
     // Accessors
@@ -59,6 +72,11 @@ class Client extends Model
     public function savingsAccounts(): HasMany
     {
         return $this->hasMany(SavingsAccount::class);
+    }
+
+    public function nextOfKin(): HasMany
+    {
+        return $this->hasMany(NextOfKin::class);
     }
 
     public function transactions(): HasMany

@@ -76,22 +76,62 @@ class DashboardController extends Controller
         // Role-specific data
         if ($role === 'admin') {
             $stats = array_merge($stats, [
+                // User & Branch Stats
                 'total_users' => User::count(),
                 'active_users' => User::where('is_active', true)->count(),
                 'total_branches' => Branch::count(),
                 'active_branches' => Branch::where('is_active', true)->count(),
-                'total_loan_portfolio' => Loan::where('status', 'active')->sum('principal_amount'),
-                'active_loans' => Loan::where('status', 'active')->sum('principal_amount'),
+                
+                // Critical Loan Metrics
+                'loans_due_today' => Loan::whereDate('next_payment_date', today())->count(),
+                'overdue_loans' => Loan::where('status', 'overdue')->count(),
+                'active_loans_count' => Loan::where('status', 'active')->count(),
+                'pending_loans' => LoanApplication::where('status', 'pending')->count(),
+                'active_borrowers' => Loan::where('status', 'active')->distinct('client_id')->count(),
+                'default_rate' => $this->calculateDefaultRate(),
+                
+                // Financial Overview
+                'released_principal' => Loan::whereIn('status', ['active', 'completed', 'overdue'])->sum('amount'),
+                'outstanding_principal' => Loan::whereIn('status', ['active', 'overdue'])->sum('outstanding_balance'),
+                'interest_collected' => $this->getInterestCollected(),
+                'realized_profit' => $this->getRealizedProfit(),
+                'expected_profit' => $this->getExpectedProfit(),
+                
+                // Portfolio At Risk (PAR) Metrics
+                'par_14_days' => $this->getParAmount(14),
+                'par_14_days_rate' => $this->getParRate(14),
+                'par_30_days' => $this->getParAmount(30),
+                'par_30_days_rate' => $this->getParRate(30),
+                'par_over_30_days' => $this->getParAmount(31, 999),
+                'par_over_30_days_rate' => $this->getParRate(31, 999),
+                'total_par' => $this->getTotalPar(),
+                'par_percentage' => $this->calculateParPercentage(),
+                
+                // Collections & Fees
+                'repayments_collected' => $this->getRepaymentsCollected(),
+                'charged_fees' => $this->getChargedFees(),
+                'penalties_collected' => $this->getPenaltiesCollected(),
+                'average_loan_size' => Loan::avg('amount') ?? 0,
+                
+                // Loan Status Distribution
+                'loans_released' => Loan::whereIn('status', ['active', 'completed', 'overdue', 'defaulted'])->count(),
+                'loans_released_amount' => Loan::whereIn('status', ['active', 'completed', 'overdue', 'defaulted'])->sum('amount'),
+                'loans_completed' => Loan::where('status', 'completed')->count(),
+                'loans_completed_amount' => Loan::where('status', 'completed')->sum('amount'),
+                'loans_defaulted' => Loan::where('status', 'defaulted')->count(),
+                'loans_defaulted_amount' => Loan::where('status', 'defaulted')->sum('amount'),
+                
+                // System Metrics
+                'total_loan_portfolio' => Loan::where('status', 'active')->sum('amount'),
+                'active_loans' => Loan::where('status', 'active')->sum('amount'),
                 'total_savings' => SavingsAccount::sum('balance'),
                 'savings_accounts' => SavingsAccount::count(),
-                'overdue_loans' => Loan::where('status', 'overdue')->count(),
-                'overdue_amount' => Loan::where('status', 'overdue')->sum('principal_amount'),
-                'par_percentage' => $this->calculateParPercentage(),
+                'overdue_amount' => Loan::where('status', 'overdue')->sum('outstanding_balance'),
                 'monthly_revenue' => $this->getMonthlyRevenue(),
                 'revenue_growth' => $this->getRevenueGrowth(),
                 'net_profit' => $this->getNetProfit(),
                 'profit_margin' => $this->getProfitMargin(),
-                'pending_jobs' => DB::table('jobs')->count(),
+                'pending_jobs' => $this->getPendingJobsCount(),
                 'storage_usage' => $this->getStorageUsage(),
                 'low_risk_loans' => $this->getRiskDistribution('low'),
                 'medium_risk_loans' => $this->getRiskDistribution('medium'),
@@ -100,32 +140,80 @@ class DashboardController extends Controller
             ]);
 
             // Get recent audit logs for admin
-            $recentActivities['audit_logs'] = AuditLog::with('causer')
-                ->latest()
-                ->limit(10)
-                ->get();
-        } elseif ($role === 'general_manager') {
+            try {
+                $recentActivities['audit_logs'] = \Spatie\Activitylog\Models\Activity::with('causer')
+                    ->latest()
+                    ->limit(10)
+                    ->get();
+            } catch (\Exception $e) {
+                $recentActivities['audit_logs'] = collect();
+            }
+        } elseif ($role === 'general_manager' || $role === 'branch_manager') {
             $stats = array_merge($stats, [
-                'total_clients' => Client::count(),
-                'active_clients' => Client::where('status', 'active')->count(),
-                'total_loan_portfolio' => Loan::where('status', 'active')->sum('principal_amount'),
-                'active_loans' => Loan::where('status', 'active')->sum('principal_amount'),
-                'par_percentage' => $this->calculateParPercentage(),
-                'monthly_revenue' => $this->getMonthlyRevenue(),
-                'revenue_growth' => $this->getRevenueGrowth(),
-                'low_risk_loans' => $this->getRiskDistribution('low'),
-                'medium_risk_loans' => $this->getRiskDistribution('medium'),
-                'high_risk_loans' => $this->getRiskDistribution('high'),
-                'defaulted_loans' => $this->getRiskDistribution('defaulted'),
+                // Client Metrics
+                'total_clients' => Client::when($branchId, fn($q) => $q->where('branch_id', $branchId))->count(),
+                'active_clients' => Client::when($branchId, fn($q) => $q->where('branch_id', $branchId))->where('status', 'active')->count(),
+                
+                // Loan Metrics
+                'active_loans' => Loan::when($branchId, fn($q) => $q->where('branch_id', $branchId))->where('status', 'active')->count(),
+                'total_portfolio' => Loan::when($branchId, fn($q) => $q->where('branch_id', $branchId))->where('status', 'active')->sum('amount'),
+                'overdue_loans' => Loan::when($branchId, fn($q) => $q->where('branch_id', $branchId))->where('status', 'overdue')->count(),
+                'loans_due_today' => Loan::when($branchId, fn($q) => $q->where('branch_id', $branchId))->whereDate('next_payment_date', today())->count(),
+                'pending_applications' => LoanApplication::when($branchId, fn($q) => $q->where('branch_id', $branchId))->where('status', 'pending')->count(),
+                
+                // Financial Metrics
+                'released_principal' => Loan::when($branchId, fn($q) => $q->where('branch_id', $branchId))->whereIn('status', ['active', 'completed', 'overdue'])->sum('amount'),
+                'outstanding_principal' => Loan::when($branchId, fn($q) => $q->where('branch_id', $branchId))->whereIn('status', ['active', 'overdue'])->sum('outstanding_balance'),
+                'repayments_collected' => Transaction::when($branchId, fn($q) => $q->where('branch_id', $branchId))
+                    ->where('type', 'loan_repayment')
+                    ->where('status', 'completed')
+                    ->whereMonth('created_at', now()->month)
+                    ->sum('amount'),
+                
+                // PAR Metrics
+                'par_percentage' => $this->calculateParPercentage($branchId),
+                'total_par' => Loan::when($branchId, fn($q) => $q->where('branch_id', $branchId))->where('status', 'overdue')->sum('outstanding_balance'),
+                
+                // Other
+                'monthly_revenue' => $this->getMonthlyRevenue($branchId),
+                'revenue_growth' => $this->getRevenueGrowth($branchId),
+                'low_risk_loans' => $this->getRiskDistribution('low', $branchId),
+                'medium_risk_loans' => $this->getRiskDistribution('medium', $branchId),
+                'high_risk_loans' => $this->getRiskDistribution('high', $branchId),
+                'defaulted_loans' => $this->getRiskDistribution('defaulted', $branchId),
             ]);
         } elseif ($role === 'loan_officer') {
             $stats = array_merge($stats, [
-                'pending_applications' => LoanApplication::where('status', 'pending')->count(),
-                'active_loans' => Loan::where('status', 'active')->count(),
-                'active_loan_value' => Loan::where('status', 'active')->sum('principal_amount'),
-                'overdue_loans' => Loan::where('status', 'overdue')->count(),
-                'overdue_amount' => Loan::where('status', 'overdue')->sum('principal_amount'),
-                'my_clients' => Client::where('assigned_officer_id', $user->id)->count(),
+                // Applications
+                'pending_applications' => LoanApplication::when($branchId, fn($q) => $q->where('branch_id', $branchId))
+                    ->where('status', 'pending')->count(),
+                
+                // Loans
+                'active_loans' => Loan::when($branchId, fn($q) => $q->where('branch_id', $branchId))
+                    ->where('status', 'active')->count(),
+                'active_loan_value' => Loan::when($branchId, fn($q) => $q->where('branch_id', $branchId))
+                    ->where('status', 'active')->sum('amount'),
+                'overdue_loans' => Loan::when($branchId, fn($q) => $q->where('branch_id', $branchId))
+                    ->where('status', 'overdue')->count(),
+                'overdue_amount' => Loan::when($branchId, fn($q) => $q->where('branch_id', $branchId))
+                    ->where('status', 'overdue')->sum('outstanding_balance'),
+                'loans_due_today' => Loan::when($branchId, fn($q) => $q->where('branch_id', $branchId))
+                    ->whereDate('next_payment_date', today())->count(),
+                
+                // Clients
+                'my_clients' => Client::when($branchId, fn($q) => $q->where('branch_id', $branchId))
+                    ->where('created_by', $user->id)->count(),
+                'total_clients' => Client::when($branchId, fn($q) => $q->where('branch_id', $branchId))->count(),
+                
+                // Collections
+                'collections_today' => Transaction::when($branchId, fn($q) => $q->where('branch_id', $branchId))
+                    ->where('type', 'loan_repayment')
+                    ->whereDate('created_at', today())
+                    ->sum('amount'),
+                'collections_this_month' => Transaction::when($branchId, fn($q) => $q->where('branch_id', $branchId))
+                    ->where('type', 'loan_repayment')
+                    ->whereMonth('created_at', now()->month)
+                    ->sum('amount'),
             ]);
         } elseif ($role === 'hr') {
             $stats = array_merge($stats, [
@@ -266,21 +354,55 @@ class DashboardController extends Controller
 
     private function getRecentActivities($branchId)
     {
-        $query = $this->getBranchQuery($branchId);
+        // Loan Disbursements (as activities)
+        $loanDisbursements = Loan::when($branchId, fn($q) => $q->where('branch_id', $branchId))
+            ->with(['client', 'branch'])
+            ->whereNotNull('disbursement_date')
+            ->orderBy('disbursement_date', 'desc')
+            ->limit(5)
+            ->get()
+            ->map(function($loan) {
+                return (object)[
+                    'created_at' => $loan->disbursement_date,
+                    'description' => 'Loan Disbursement',
+                    'client' => $loan->client,
+                    'branch' => $loan->branch,
+                    'amount' => $loan->amount,
+                ];
+            });
+
+        // Loan Repayments (as activities)
+        $loanRepayments = Transaction::when($branchId, fn($q) => $q->where('branch_id', $branchId))
+            ->where('type', 'loan_repayment')
+            ->with(['client', 'loan', 'branch'])
+            ->orderBy('created_at', 'desc')
+            ->limit(5)
+            ->get()
+            ->map(function($transaction) {
+                return (object)[
+                    'created_at' => $transaction->created_at,
+                    'description' => 'Loan Repayment',
+                    'client' => $transaction->client,
+                    'branch' => $transaction->branch,
+                    'amount' => $transaction->amount,
+                ];
+            });
 
         return [
-            'recent_transactions' => $query(Transaction::class)
+            'loan_disbursements' => $loanDisbursements,
+            'loan_repayments' => $loanRepayments,
+            'recent_transactions' => Transaction::when($branchId, fn($q) => $q->where('branch_id', $branchId))
                 ->with(['client', 'loan'])
                 ->orderBy('created_at', 'desc')
                 ->limit(10)
                 ->get(),
-            'recent_clients' => $query(Client::class)
+            'recent_clients' => Client::when($branchId, fn($q) => $q->where('branch_id', $branchId))
                 ->with('branch')
                 ->orderBy('created_at', 'desc')
                 ->limit(5)
                 ->get(),
-            'recent_applications' => $query(LoanApplication::class)
-                ->with(['client', 'loanOfficer'])
+            'recent_applications' => LoanApplication::when($branchId, fn($q) => $q->where('branch_id', $branchId))
+                ->with(['client', 'createdBy'])
                 ->orderBy('created_at', 'desc')
                 ->limit(5)
                 ->get(),
@@ -289,23 +411,22 @@ class DashboardController extends Controller
 
     private function getMonthlyTrends($branchId)
     {
-        $query = $this->getBranchQuery($branchId);
-
         // Get last 6 months of data
         $months = collect();
         for ($i = 5; $i >= 0; $i--) {
             $date = now()->subMonths($i);
             $months->push([
                 'month' => $date->format('M Y'),
-                'loans_disbursed' => $query(Loan::class)
+                'loans_disbursed' => Loan::when($branchId, fn($q) => $q->where('branch_id', $branchId))
                     ->whereMonth('disbursement_date', $date->month)
                     ->whereYear('disbursement_date', $date->year)
                     ->sum('amount'),
-                'loans_collected' => $query(LoanRepayment::class)
-                    ->whereMonth('actual_payment_date', $date->month)
-                    ->whereYear('actual_payment_date', $date->year)
-                    ->sum('total_paid'),
-                'new_clients' => $query(Client::class)
+                'collections' => Transaction::when($branchId, fn($q) => $q->where('branch_id', $branchId))
+                    ->where('type', 'loan_repayment')
+                    ->whereMonth('created_at', $date->month)
+                    ->whereYear('created_at', $date->year)
+                    ->sum('amount'),
+                'new_clients' => Client::when($branchId, fn($q) => $q->where('branch_id', $branchId))
                     ->whereMonth('created_at', $date->month)
                     ->whereYear('created_at', $date->year)
                     ->count(),
@@ -464,31 +585,36 @@ class DashboardController extends Controller
         ];
     }
 
-    // Admin-specific helper methods
-    private function calculateParPercentage()
+    // Admin-specific helper methods (with branch support)
+    private function calculateParPercentage($branchId = null)
     {
-        $overdueAmount = Loan::where('status', 'overdue')->sum('principal_amount');
-        $totalPortfolio = Loan::whereIn('status', ['active', 'disbursed', 'overdue'])->sum('principal_amount');
+        $overdueAmount = Loan::when($branchId, fn($q) => $q->where('branch_id', $branchId))
+            ->where('status', 'overdue')->sum('outstanding_balance');
+        $totalPortfolio = Loan::when($branchId, fn($q) => $q->where('branch_id', $branchId))
+            ->whereIn('status', ['active', 'disbursed', 'overdue'])->sum('outstanding_balance');
         
         return $totalPortfolio > 0 ? round(($overdueAmount / $totalPortfolio) * 100, 2) : 0;
     }
 
-    private function getMonthlyRevenue()
+    private function getMonthlyRevenue($branchId = null)
     {
-        return Transaction::where('type', 'interest')
+        return Transaction::when($branchId, fn($q) => $q->where('branch_id', $branchId))
+            ->whereIn('type', ['interest_posting', 'interest'])
             ->whereMonth('created_at', now()->month)
             ->whereYear('created_at', now()->year)
             ->sum('amount') ?? 0;
     }
 
-    private function getRevenueGrowth()
+    private function getRevenueGrowth($branchId = null)
     {
-        $currentMonth = Transaction::where('type', 'interest')
+        $currentMonth = Transaction::when($branchId, fn($q) => $q->where('branch_id', $branchId))
+            ->whereIn('type', ['interest_posting', 'interest'])
             ->whereMonth('created_at', now()->month)
             ->whereYear('created_at', now()->year)
             ->sum('amount') ?? 0;
 
-        $lastMonth = Transaction::where('type', 'interest')
+        $lastMonth = Transaction::when($branchId, fn($q) => $q->where('branch_id', $branchId))
+            ->whereIn('type', ['interest_posting', 'interest'])
             ->whereMonth('created_at', now()->subMonth()->month)
             ->whereYear('created_at', now()->subMonth()->year)
             ->sum('amount') ?? 0;
@@ -524,19 +650,23 @@ class DashboardController extends Controller
         return $totalSpace > 0 ? round(($usedSpace / $totalSpace) * 100, 2) : 0;
     }
 
-    private function getRiskDistribution($riskLevel)
+    private function getRiskDistribution($riskLevel, $branchId = null)
     {
         // This is a simplified implementation
         // In a real system, you'd have a risk assessment system
         switch ($riskLevel) {
             case 'low':
-                return Loan::where('status', 'active')->where('principal_amount', '<', 10000)->count();
+                return Loan::when($branchId, fn($q) => $q->where('branch_id', $branchId))
+                    ->where('status', 'active')->where('amount', '<', 10000)->count();
             case 'medium':
-                return Loan::where('status', 'active')->whereBetween('principal_amount', [10000, 50000])->count();
+                return Loan::when($branchId, fn($q) => $q->where('branch_id', $branchId))
+                    ->where('status', 'active')->whereBetween('amount', [10000, 50000])->count();
             case 'high':
-                return Loan::where('status', 'active')->where('principal_amount', '>', 50000)->count();
+                return Loan::when($branchId, fn($q) => $q->where('branch_id', $branchId))
+                    ->where('status', 'active')->where('amount', '>', 50000)->count();
             case 'defaulted':
-                return Loan::where('status', 'defaulted')->count();
+                return Loan::when($branchId, fn($q) => $q->where('branch_id', $branchId))
+                    ->where('status', 'defaulted')->count();
             default:
                 return 0;
         }
@@ -658,5 +788,114 @@ class DashboardController extends Controller
     {
         // Simplified implementation
         return now()->subDays(rand(1, 30))->format('M d, Y'); // Mock data
+    }
+
+    // Comprehensive Metrics Helper Methods
+    
+    private function calculateDefaultRate()
+    {
+        $totalLoans = Loan::whereIn('status', ['active', 'completed', 'overdue', 'defaulted'])->count();
+        $defaultedLoans = Loan::where('status', 'defaulted')->count();
+        
+        return $totalLoans > 0 ? round(($defaultedLoans / $totalLoans) * 100, 2) : 0;
+    }
+
+    private function getInterestCollected()
+    {
+        return Transaction::where('type', 'interest_posting')
+            ->where('status', 'completed')
+            ->sum('amount') ?? 0;
+    }
+
+    private function getRealizedProfit()
+    {
+        $interest = $this->getInterestCollected();
+        $fees = $this->getChargedFees();
+        $penalties = $this->getPenaltiesCollected();
+        $expenses = Transaction::where('type', 'fee')
+            ->where('status', 'completed')
+            ->sum('amount') ?? 0;
+        
+        return $interest + $fees + $penalties - $expenses;
+    }
+
+    private function getExpectedProfit()
+    {
+        $activeLoans = Loan::where('status', 'active')->get();
+        $totalExpectedInterest = 0;
+        
+        foreach ($activeLoans as $loan) {
+            $totalExpectedInterest += $loan->calculateTotalInterest();
+        }
+        
+        return $totalExpectedInterest;
+    }
+
+    private function getParAmount($minDays, $maxDays = null)
+    {
+        $query = Loan::where('status', 'overdue');
+        
+        // Use Carbon for database-agnostic date calculations
+        $now = now();
+        
+        if ($maxDays) {
+            $minDate = $now->copy()->subDays($maxDays);
+            $maxDate = $now->copy()->subDays($minDays);
+            $query->whereBetween('due_date', [$minDate, $maxDate]);
+        } else {
+            $maxDate = $now->copy()->subDays($minDays);
+            $query->where('due_date', '<=', $maxDate);
+        }
+        
+        return $query->sum('outstanding_balance') ?? 0;
+    }
+
+    private function getParRate($minDays, $maxDays = null)
+    {
+        $parAmount = $this->getParAmount($minDays, $maxDays);
+        $totalPortfolio = Loan::whereIn('status', ['active', 'overdue'])->sum('outstanding_balance');
+        
+        return $totalPortfolio > 0 ? round(($parAmount / $totalPortfolio) * 100, 2) : 0;
+    }
+
+    private function getTotalPar()
+    {
+        return Loan::where('status', 'overdue')->sum('outstanding_balance') ?? 0;
+    }
+
+    private function getRepaymentsCollected()
+    {
+        return Transaction::where('type', 'loan_repayment')
+            ->where('status', 'completed')
+            ->whereMonth('created_at', now()->month)
+            ->whereYear('created_at', now()->year)
+            ->sum('amount') ?? 0;
+    }
+
+    private function getChargedFees()
+    {
+        return Transaction::where('type', 'fee')
+            ->where('status', 'completed')
+            ->whereMonth('created_at', now()->month)
+            ->whereYear('created_at', now()->year)
+            ->sum('amount') ?? 0;
+    }
+
+    private function getPenaltiesCollected()
+    {
+        return Transaction::where('type', 'penalty')
+            ->where('status', 'completed')
+            ->whereMonth('created_at', now()->month)
+            ->whereYear('created_at', now()->year)
+            ->sum('amount') ?? 0;
+    }
+
+    private function getPendingJobsCount()
+    {
+        try {
+            return DB::table('jobs')->count();
+        } catch (\Exception $e) {
+            return 0;
+        }
     }
 }

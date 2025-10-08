@@ -17,15 +17,20 @@ class LoanApplication extends Model
         'loan_type',
         'requested_amount',
         'approved_amount',
+        'term_months',
         'requested_term_months',
         'approved_term_months',
+        'interest_rate',
         'requested_interest_rate',
         'approved_interest_rate',
         'payment_frequency',
+        'purpose',
         'loan_purpose',
         'business_description',
         'monthly_income',
         'monthly_expenses',
+        'employment_status',
+        'collateral_type',
         'collateral_description',
         'collateral_value',
         'status',
@@ -34,6 +39,7 @@ class LoanApplication extends Model
         'credit_score',
         'rejection_reason',
         'notes',
+        'created_by',
         'approved_by',
         'approved_at',
         'rejected_by',
@@ -81,6 +87,11 @@ class LoanApplication extends Model
     public function rejectedBy(): BelongsTo
     {
         return $this->belongsTo(User::class, 'rejected_by');
+    }
+
+    public function createdBy(): BelongsTo
+    {
+        return $this->belongsTo(User::class, 'created_by');
     }
 
     public function loan(): HasOne

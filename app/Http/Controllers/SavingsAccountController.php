@@ -207,6 +207,24 @@ class SavingsAccountController extends Controller
         }
     }
 
+    public function close(Request $request, SavingsAccount $savingsAccount)
+    {
+        if ($savingsAccount->status === 'closed') {
+            return back()->with('error', 'Account is already closed.');
+        }
+
+        if ($savingsAccount->balance > 0) {
+            return back()->with('error', 'Cannot close account with non-zero balance. Please withdraw all funds first.');
+        }
+
+        $savingsAccount->update([
+            'status' => 'closed',
+            'closed_date' => now(),
+        ]);
+
+        return back()->with('success', 'Savings account closed successfully.');
+    }
+
     private function generateAccountNumber()
     {
         $prefix = 'SAV';

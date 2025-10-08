@@ -370,18 +370,43 @@
         <script>
             // Initialize DataTables
             $(document).ready(function() {
-                $('.table').DataTable({
-                    "pageLength": 25,
-                    "responsive": true,
-                    "language": {
-                        "search": "Search:",
-                        "lengthMenu": "Show _MENU_ entries",
-                        "info": "Showing _START_ to _END_ of _TOTAL_ entries",
-                        "paginate": {
-                            "first": "First",
-                            "last": "Last",
-                            "next": "Next",
-                            "previous": "Previous"
+                // Only initialize DataTables on tables that have a thead and are not already initialized
+                $('table.table').each(function() {
+                    var $table = $(this);
+                    
+                    // Skip if already initialized
+                    if ($.fn.DataTable.isDataTable($table)) {
+                        return;
+                    }
+                    
+                    // Only initialize on proper tables
+                    if ($table.find('thead').length > 0 && $table.find('tbody').length > 0) {
+                        var theadColumnCount = $table.find('thead tr:first th').length;
+                        var tbodyColumnCount = $table.find('tbody tr:first td').length;
+                        
+                        // Only initialize if column counts match
+                        if (theadColumnCount === tbodyColumnCount && theadColumnCount > 0) {
+                            try {
+                                $table.DataTable({
+                                    "pageLength": 25,
+                                    "responsive": true,
+                                    "autoWidth": false,
+                                    "language": {
+                                        "search": "Search:",
+                                        "lengthMenu": "Show _MENU_ entries",
+                                        "info": "Showing _START_ to _END_ of _TOTAL_ entries",
+                                        "emptyTable": "No data available",
+                                        "paginate": {
+                                            "first": "First",
+                                            "last": "Last",
+                                            "next": "Next",
+                                            "previous": "Previous"
+                                        }
+                                    }
+                                });
+                            } catch (e) {
+                                console.warn('DataTables initialization skipped:', e.message);
+                            }
                         }
                     }
                 });

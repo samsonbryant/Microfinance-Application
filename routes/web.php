@@ -26,13 +26,24 @@ Route::middleware('auth')->group(function () {
     
     // Client Management - All authenticated users
     Route::resource('clients', App\Http\Controllers\ClientController::class);
+    Route::post('clients/{client}/verify-kyc', [App\Http\Controllers\ClientController::class, 'verifyKyc'])->name('clients.verify-kyc');
+    Route::post('clients/{client}/suspend', [App\Http\Controllers\ClientController::class, 'suspend'])->name('clients.suspend');
+    Route::post('clients/{client}/activate', [App\Http\Controllers\ClientController::class, 'activate'])->name('clients.activate');
     
     // Loan Management - All authenticated users
     Route::resource('loans', App\Http\Controllers\LoanController::class);
+    Route::post('loans/{loan}/approve', [App\Http\Controllers\LoanController::class, 'approve'])->name('loans.approve');
+    Route::post('loans/{loan}/reject', [App\Http\Controllers\LoanController::class, 'reject'])->name('loans.reject');
+    Route::post('loans/{loan}/disburse', [App\Http\Controllers\LoanController::class, 'disburse'])->name('loans.disburse');
+    Route::post('loans/{loan}/repay', [App\Http\Controllers\LoanController::class, 'repay'])->name('loans.repay');
+    
     Route::resource('loan-applications', App\Http\Controllers\LoanApplicationController::class);
     
     // Transaction Management - All authenticated users
     Route::resource('transactions', App\Http\Controllers\TransactionController::class);
+    Route::post('transactions/{transaction}/approve', [App\Http\Controllers\TransactionController::class, 'approve'])->name('transactions.approve');
+    Route::post('transactions/{transaction}/reject', [App\Http\Controllers\TransactionController::class, 'reject'])->name('transactions.reject');
+    Route::post('transactions/{transaction}/reverse', [App\Http\Controllers\TransactionController::class, 'reverse'])->name('transactions.reverse');
     
     // User Management - Admin only
     Route::resource('users', App\Http\Controllers\UsersController::class)
@@ -52,32 +63,31 @@ Route::middleware('auth')->group(function () {
         ->name('chart-of-accounts.balance')
         ->middleware('role:admin,general_manager');
     
-    // General Ledger - Admin and General Manager only
+    // General Ledger - Admin and General Manager only (Custom routes BEFORE resource)
+    Route::prefix('general-ledger')->name('general-ledger.')->middleware('role:admin,general_manager')->group(function () {
+        Route::get('/trial-balance', [App\Http\Controllers\GeneralLedgerController::class, 'trialBalance'])->name('trial-balance');
+        Route::get('/profit-loss', [App\Http\Controllers\GeneralLedgerController::class, 'profitAndLoss'])->name('profit-loss');
+        Route::get('/balance-sheet', [App\Http\Controllers\GeneralLedgerController::class, 'balanceSheet'])->name('balance-sheet');
+    });
     Route::resource('general-ledger', App\Http\Controllers\GeneralLedgerController::class)
-        ->middleware('role:admin,general_manager');
-    Route::get('general-ledger/trial-balance', [App\Http\Controllers\GeneralLedgerController::class, 'trialBalance'])
-        ->name('general-ledger.trial-balance')
-        ->middleware('role:admin,general_manager');
-    Route::get('general-ledger/profit-loss', [App\Http\Controllers\GeneralLedgerController::class, 'profitAndLoss'])
-        ->name('general-ledger.profit-loss')
-        ->middleware('role:admin,general_manager');
-    Route::get('general-ledger/balance-sheet', [App\Http\Controllers\GeneralLedgerController::class, 'balanceSheet'])
-        ->name('general-ledger.balance-sheet')
         ->middleware('role:admin,general_manager');
     
     // Financial Reports - Admin and General Manager only
     Route::resource('financial-reports', App\Http\Controllers\FinancialReportsController::class)
         ->middleware('role:admin,general_manager');
     
-        // Reports
-        Route::prefix('reports')->name('reports.')->group(function () {
-            Route::get('/', [App\Http\Controllers\ReportController::class, 'index'])->name('index');
-            Route::get('/staff', [App\Http\Controllers\ReportController::class, 'staff'])->name('staff');
-            Route::get('/financial', [App\Http\Controllers\ReportController::class, 'financial'])->name('financial');
-            Route::get('/clients', [App\Http\Controllers\ReportController::class, 'clients'])->name('clients');
-            Route::get('/export-excel/{type}', [App\Http\Controllers\ReportController::class, 'exportExcel'])->name('export-excel');
-            Route::get('/export-pdf/{type}', [App\Http\Controllers\ReportController::class, 'exportPdf'])->name('export-pdf');
-        });
+    // Reports - Comprehensive reporting system
+    Route::prefix('reports')->name('reports.')->group(function () {
+        Route::get('/', [App\Http\Controllers\ReportController::class, 'index'])->name('index');
+        Route::get('/staff', [App\Http\Controllers\ReportController::class, 'staff'])->name('staff');
+        Route::get('/financial', [App\Http\Controllers\ReportController::class, 'financial'])->name('financial');
+        Route::get('/clients', [App\Http\Controllers\ReportController::class, 'clients'])->name('clients');
+        Route::get('/portfolio', [App\Http\Controllers\ReportController::class, 'portfolio'])->name('portfolio');
+        Route::get('/collections', [App\Http\Controllers\ReportController::class, 'collections'])->name('collections');
+        Route::get('/performance', [App\Http\Controllers\ReportController::class, 'performance'])->name('performance');
+        Route::get('/export-excel/{type}', [App\Http\Controllers\ReportController::class, 'exportExcel'])->name('export-excel');
+        Route::get('/export-pdf/{type}', [App\Http\Controllers\ReportController::class, 'exportPdf'])->name('export-pdf');
+    });
     
     // Settings - Admin only
     Route::prefix('settings')->name('settings.')->group(function () {
@@ -86,40 +96,31 @@ Route::middleware('auth')->group(function () {
     
     // Audit Logs - Admin only
     Route::prefix('audit-logs')->name('audit-logs.')->group(function () {
-        Route::get('/', function() {
-            return view('audit-logs.index');
-        })->name('index');
+        Route::get('/', [App\Http\Controllers\AuditLogController::class, 'index'])->name('index');
     })->middleware('role:admin');
     
     // Backup - Admin only
     Route::prefix('backup')->name('backup.')->group(function () {
-        Route::post('/create', function() {
-            return back()->with('success', 'Backup created successfully.');
-        })->name('create');
+        Route::get('/', [App\Http\Controllers\BackupController::class, 'index'])->name('index');
+        Route::get('/create', [App\Http\Controllers\BackupController::class, 'create'])->name('create');
+        Route::post('/create', [App\Http\Controllers\BackupController::class, 'store'])->name('store');
+        Route::post('/{backup}/restore', [App\Http\Controllers\BackupController::class, 'restore'])->name('restore');
+        Route::delete('/{backup}', [App\Http\Controllers\BackupController::class, 'destroy'])->name('destroy');
     })->middleware('role:admin');
     
     // Staff Management - HR and Admin only
-    Route::prefix('staff')->name('staff.')->group(function () {
-        Route::get('/', function() {
-            return view('staff.index');
-        })->name('index');
-        Route::get('/create', function() {
-            return view('staff.create');
-        })->name('create');
-    })->middleware('role:admin,hr');
+    Route::resource('staff', App\Http\Controllers\StaffController::class)
+        ->middleware('role:admin,hr');
     
     // Payroll Management - HR and Admin only
-    Route::prefix('payrolls')->name('payrolls.')->group(function () {
-        Route::get('/', function() {
-            return view('payrolls.index');
-        })->name('index');
-        Route::get('/create', function() {
-            return view('payrolls.create');
-        })->name('create');
-    })->middleware('role:admin,hr');
+    Route::resource('payrolls', App\Http\Controllers\PayrollController::class)
+        ->middleware('role:admin,hr');
     
     // Savings Accounts
     Route::resource('savings-accounts', App\Http\Controllers\SavingsAccountController::class);
+    Route::post('savings-accounts/{savingsAccount}/deposit', [App\Http\Controllers\SavingsAccountController::class, 'deposit'])->name('savings-accounts.deposit');
+    Route::post('savings-accounts/{savingsAccount}/withdraw', [App\Http\Controllers\SavingsAccountController::class, 'withdraw'])->name('savings-accounts.withdraw');
+    Route::post('savings-accounts/{savingsAccount}/close', [App\Http\Controllers\SavingsAccountController::class, 'close'])->name('savings-accounts.close');
     
     // Payments
     Route::resource('payments', App\Http\Controllers\PaymentController::class);
@@ -137,61 +138,45 @@ Route::middleware('auth')->group(function () {
         Route::post('/send-bulk', [App\Http\Controllers\NotificationController::class, 'sendBulk'])->name('send-bulk');
     });
     
-    // Additional Admin Routes - Admin only
-    Route::prefix('kyc-documents')->name('kyc-documents.')->group(function () {
-        Route::get('/', function() { return view('kyc-documents.index'); })->name('index');
-    })->middleware('role:admin');
+    // Additional Admin Routes
+    Route::resource('kyc-documents', App\Http\Controllers\KycDocumentController::class)
+        ->middleware('role:admin,general_manager,loan_officer');
     
-    Route::prefix('client-risk-profiles')->name('client-risk-profiles.')->group(function () {
-        Route::get('/', function() { return view('client-risk-profiles.index'); })->name('index');
-    })->middleware('role:admin');
+    Route::resource('client-risk-profiles', App\Http\Controllers\ClientRiskProfileController::class)
+        ->middleware('role:admin,general_manager,loan_officer');
     
-    Route::prefix('loan-repayments')->name('loan-repayments.')->group(function () {
-        Route::get('/', function() { return view('loan-repayments.index'); })->name('index');
-    })->middleware('role:admin,general_manager,loan_officer');
+    Route::resource('loan-repayments', App\Http\Controllers\LoanRepaymentController::class)
+        ->middleware('role:admin,general_manager,loan_officer');
     
-    Route::prefix('collaterals')->name('collaterals.')->group(function () {
-        Route::get('/', function() { return view('collaterals.index'); })->name('index');
-    })->middleware('role:admin,general_manager,loan_officer');
+    Route::resource('collaterals', App\Http\Controllers\CollateralController::class)
+        ->middleware('role:admin,general_manager,loan_officer');
     
-    Route::prefix('approval-workflows')->name('approval-workflows.')->group(function () {
-        Route::get('/', function() { return view('approval-workflows.index'); })->name('index');
-    })->middleware('role:admin,general_manager');
+    Route::resource('approval-workflows', App\Http\Controllers\ApprovalWorkflowController::class)
+        ->middleware('role:admin,general_manager');
     
-    Route::prefix('recovery-actions')->name('recovery-actions.')->group(function () {
-        Route::get('/', function() { return view('recovery-actions.index'); })->name('index');
-    })->middleware('role:admin,general_manager,loan_officer');
+    Route::resource('recovery-actions', App\Http\Controllers\RecoveryActionController::class)
+        ->middleware('role:admin,general_manager,loan_officer');
     
-    Route::prefix('communication-logs')->name('communication-logs.')->group(function () {
-        Route::get('/', function() { return view('communication-logs.index'); })->name('index');
-    })->middleware('role:admin,general_manager,loan_officer');
+    Route::resource('communication-logs', App\Http\Controllers\CommunicationLogController::class)
+        ->middleware('role:admin,general_manager,loan_officer');
     
-    Route::prefix('attendance')->name('attendance.')->group(function () {
-        Route::get('/', function() { return view('attendance.index'); })->name('index');
-    })->middleware('role:admin,hr');
+    Route::resource('attendance', App\Http\Controllers\AttendanceController::class)
+        ->middleware('role:admin,hr');
     
-    Route::prefix('performance')->name('performance.')->group(function () {
-        Route::get('/', function() { return view('performance.index'); })->name('index');
-    })->middleware('role:admin,hr');
+    Route::resource('performance', App\Http\Controllers\PerformanceController::class)
+        ->middleware('role:admin,hr');
     
     Route::prefix('system-health')->name('system-health.')->group(function () {
-        Route::get('/', function() { return view('system-health.index'); })->name('index');
+        Route::get('/', [App\Http\Controllers\SystemHealthController::class, 'index'])->name('index');
     })->middleware('role:admin');
     
     Route::prefix('logs')->name('logs.')->group(function () {
-        Route::get('/', function() { return view('logs.index'); })->name('index');
+        Route::get('/', [App\Http\Controllers\LogController::class, 'index'])->name('index');
     })->middleware('role:admin');
     
     Route::prefix('maintenance')->name('maintenance.')->group(function () {
-        Route::get('/', function() { return view('maintenance.index'); })->name('index');
+        Route::get('/', [App\Http\Controllers\MaintenanceController::class, 'index'])->name('index');
     })->middleware('role:admin');
-    
-    // Additional Report Routes
-    Route::prefix('reports')->name('reports.')->group(function () {
-        Route::get('/portfolio', function() { return view('reports.portfolio'); })->name('portfolio');
-        Route::get('/collections', function() { return view('reports.collections'); })->name('collections');
-        Route::get('/performance', function() { return view('reports.performance'); })->name('performance');
-    });
     
     // Borrower Portal
     Route::prefix('borrower')->name('borrower.')->group(function () {

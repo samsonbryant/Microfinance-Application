@@ -20,6 +20,48 @@
             <div class="user-role">{{ ucfirst($role) }}</div>
         </div>
     </div>
+
+    @if($role === 'admin')
+        <!-- Quick Stats for Admin -->
+        <div class="sidebar-quick-stats">
+            <div class="quick-stat-item">
+                <div class="quick-stat-icon bg-warning">
+                    <i class="fas fa-clock"></i>
+                </div>
+                <div class="quick-stat-info">
+                    <div class="quick-stat-value">{{ \App\Models\Loan::where('next_payment_date', today())->count() }}</div>
+                    <div class="quick-stat-label">Due Today</div>
+                </div>
+            </div>
+            <div class="quick-stat-item">
+                <div class="quick-stat-icon bg-danger">
+                    <i class="fas fa-exclamation-triangle"></i>
+                </div>
+                <div class="quick-stat-info">
+                    <div class="quick-stat-value">{{ \App\Models\Loan::where('status', 'overdue')->count() }}</div>
+                    <div class="quick-stat-label">Overdue</div>
+                </div>
+            </div>
+            <div class="quick-stat-item">
+                <div class="quick-stat-icon bg-success">
+                    <i class="fas fa-check-circle"></i>
+                </div>
+                <div class="quick-stat-info">
+                    <div class="quick-stat-value">{{ \App\Models\Loan::where('status', 'active')->count() }}</div>
+                    <div class="quick-stat-label">Active</div>
+                </div>
+            </div>
+            <div class="quick-stat-item">
+                <div class="quick-stat-icon bg-info">
+                    <i class="fas fa-file-alt"></i>
+                </div>
+                <div class="quick-stat-info">
+                    <div class="quick-stat-value">{{ \App\Models\Loan::where('status', 'pending')->count() }}</div>
+                    <div class="quick-stat-label">Requests</div>
+                </div>
+            </div>
+        </div>
+    @endif
     
     <nav class="sidebar-nav">
         <ul class="nav-list">
@@ -632,6 +674,69 @@
         color: #bdc3c7;
         text-transform: uppercase;
         letter-spacing: 0.5px;
+    }
+
+    /* Quick Stats */
+    .sidebar-quick-stats {
+        padding: 1rem;
+        border-bottom: 1px solid rgba(255,255,255,0.1);
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        gap: 0.75rem;
+    }
+
+    .quick-stat-item {
+        background: rgba(255,255,255,0.05);
+        border-radius: 8px;
+        padding: 0.75rem;
+        display: flex;
+        align-items: center;
+        gap: 0.5rem;
+        transition: all 0.3s ease;
+        cursor: pointer;
+    }
+
+    .quick-stat-item:hover {
+        background: rgba(255,255,255,0.1);
+        transform: translateY(-2px);
+    }
+
+    .quick-stat-icon {
+        width: 35px;
+        height: 35px;
+        border-radius: 8px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-size: 1rem;
+        flex-shrink: 0;
+    }
+
+    .quick-stat-icon i {
+        color: white;
+    }
+
+    .quick-stat-info {
+        flex: 1;
+        min-width: 0;
+    }
+
+    .quick-stat-value {
+        font-size: 1.25rem;
+        font-weight: 700;
+        line-height: 1;
+        margin-bottom: 0.25rem;
+        color: white;
+    }
+
+    .quick-stat-label {
+        font-size: 0.7rem;
+        color: #bdc3c7;
+        text-transform: uppercase;
+        letter-spacing: 0.5px;
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
     }
     
     .sidebar-nav {

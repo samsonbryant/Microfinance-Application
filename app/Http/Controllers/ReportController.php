@@ -124,6 +124,29 @@ class ReportController extends Controller
     }
 
     /**
+     * Staff Report
+     */
+    public function staff(Request $request)
+    {
+        $filters = $this->getFilters($request);
+        
+        $staff = User::whereHas('roles', function($query) {
+            $query->whereIn('name', ['admin', 'general_manager', 'branch_manager', 'loan_officer', 'hr']);
+        })
+        ->with(['roles', 'branch'])
+        ->withCount(['loans', 'clients'])
+        ->when($filters['branch_id'], fn($q) => $q->where('branch_id', $filters['branch_id']))
+        ->when($filters['date_from'], fn($q) => $q->where('created_at', '>=', $filters['date_from']))
+        ->when($filters['date_to'], fn($q) => $q->where('created_at', '<=', $filters['date_to']))
+        ->orderBy('created_at', 'desc')
+        ->paginate(20);
+
+        $staffStats = $this->getStaffStatistics($filters);
+        
+        return view('reports.staff', compact('staff', 'staffStats', 'filters'));
+    }
+
+    /**
      * Export report to PDF
      */
     public function exportPdf(Request $request, $type)
@@ -263,10 +286,21 @@ class ReportController extends Controller
      */
     private function getPerformanceData($filters)
     {
+        $loanOfficers = User::whereHas('roles', fn($q) => $q->where('name', 'loan_officer'))
+            ->with('branch')
+            ->get()
+            ->map(function($user) {
+                return [
+                    'name' => $user->name,
+                    'branch' => $user->branch->name ?? 'N/A',
+                    'loans_count' => Loan::where('created_by', $user->id)->count(),
+                    'clients_count' => Client::where('created_by', $user->id)->count(),
+                    'total_disbursed' => Loan::where('created_by', $user->id)->sum('amount'),
+                ];
+            });
+
         return [
-            'loan_officers' => User::whereHas('roles', fn($q) => $q->where('name', 'loan_officer'))
-                ->withCount(['loans', 'clients'])
-                ->get(),
+            'loan_officers' => $loanOfficers,
             'monthly_targets' => $this->getMonthlyTargets(),
             'achievement_rates' => $this->getAchievementRates(),
         ];
@@ -306,6 +340,26 @@ class ReportController extends Controller
             'active_clients' => $query->where('status', 'active')->count(),
             'new_clients' => $query->whereMonth('created_at', now()->month)->count(),
             'average_loan_per_client' => $query->withCount('loans')->get()->avg('loans_count'),
+        ];
+    }
+
+    /**
+     * Get staff statistics
+     */
+    private function getStaffStatistics($filters)
+    {
+        $query = User::whereHas('roles', function($query) {
+            $query->whereIn('name', ['admin', 'general_manager', 'branch_manager', 'loan_officer', 'hr']);
+        })
+        ->when($filters['branch_id'], fn($q) => $q->where('branch_id', $filters['branch_id']))
+        ->when($filters['date_from'], fn($q) => $q->where('created_at', '>=', $filters['date_from']))
+        ->when($filters['date_to'], fn($q) => $q->where('created_at', '<=', $filters['date_to']));
+
+        return [
+            'total_staff' => $query->count(),
+            'loan_officers' => $query->whereHas('roles', fn($q) => $q->where('name', 'loan_officer'))->count(),
+            'branch_managers' => $query->whereHas('roles', fn($q) => $q->where('name', 'branch_manager'))->count(),
+            'total_loans_managed' => Loan::whereHas('user')->count(),
         ];
     }
 

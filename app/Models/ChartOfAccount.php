@@ -11,14 +11,20 @@ class ChartOfAccount extends Model
         'code',
         'name',
         'type',
+        'category',
         'parent_id',
         'is_active',
         'description',
         'normal_balance',
+        'opening_balance',
+        'currency',
+        'is_system_account',
     ];
 
     protected $casts = [
         'is_active' => 'boolean',
+        'is_system_account' => 'boolean',
+        'opening_balance' => 'decimal:2',
     ];
 
     // Relationships
@@ -90,5 +96,72 @@ class ChartOfAccount extends Model
             'expense' => 'danger',
             default => 'secondary',
         };
+    }
+
+    // Enhanced methods for Microbook-G5
+    public function getCategoryBadgeClass()
+    {
+        return match($this->category) {
+            'cash_on_hand', 'cash_in_bank' => 'success',
+            'loan_portfolio', 'accounts_receivable' => 'primary',
+            'property_plant_equipment' => 'info',
+            'accumulated_depreciation' => 'secondary',
+            'client_savings', 'interest_payable' => 'warning',
+            'loan_interest_income', 'penalty_income' => 'success',
+            'salaries_wages', 'rent_expense' => 'danger',
+            default => 'secondary',
+        };
+    }
+
+    public function isDebitAccount()
+    {
+        return $this->normal_balance === 'debit';
+    }
+
+    public function isCreditAccount()
+    {
+        return $this->normal_balance === 'credit';
+    }
+
+    public function getCurrentBalance()
+    {
+        $debits = $this->generalLedgers()->sum('debit');
+        $credits = $this->generalLedgers()->sum('credit');
+        
+        if ($this->normal_balance === 'debit') {
+            return $this->opening_balance + $debits - $credits;
+        } else {
+            return $this->opening_balance + $credits - $debits;
+        }
+    }
+
+    public function getFormattedCurrentBalance()
+    {
+        return number_format($this->getCurrentBalance(), 2);
+    }
+
+    // Static methods for account type validation
+    public static function getNormalBalanceForType($type)
+    {
+        return match($type) {
+            'asset', 'expense' => 'debit',
+            'liability', 'equity', 'revenue' => 'credit',
+            default => 'debit',
+        };
+    }
+
+    public static function getAccountsByType($type)
+    {
+        return static::where('type', $type)->where('is_active', true)->get();
+    }
+
+    public static function getSystemAccounts()
+    {
+        return static::where('is_system_account', true)->get();
+    }
+
+    public function canBeDeleted()
+    {
+        return !$this->is_system_account && $this->generalLedgers()->count() === 0;
     }
 }

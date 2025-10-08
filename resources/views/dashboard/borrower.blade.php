@@ -5,12 +5,81 @@
 @section('content')
 <!-- Borrower Dashboard - Self-Service Portal -->
 <div class="container-fluid">
-    <!-- Welcome Section -->
+    <!-- Welcome Section with Profile Summary -->
     <div class="row mb-4">
-        <div class="col-12">
-            <div class="alert alert-info border-0">
-                <i class="fas fa-user me-2"></i>
-                <strong>Welcome, {{ auth()->user()->name }}!</strong> - Manage your loans, savings, and payments easily.
+        <div class="col-lg-8">
+            <div class="card shadow border-0 bg-gradient-primary text-white">
+                <div class="card-body">
+                    <div class="d-flex align-items-center">
+                        <div class="me-4">
+                            @if(auth()->user()->client && auth()->user()->client->avatar)
+                                <img src="{{ Storage::url(auth()->user()->client->avatar) }}" 
+                                     alt="Avatar" class="rounded-circle" style="width: 80px; height: 80px; object-fit: cover; border: 3px solid white;">
+                            @else
+                                <div class="rounded-circle bg-white text-primary d-flex align-items-center justify-content-center" 
+                                     style="width: 80px; height: 80px; font-size: 2rem;">
+                                    <i class="fas fa-user"></i>
+                                </div>
+                            @endif
+                        </div>
+                        <div class="flex-grow-1">
+                            <h3 class="mb-1"><strong>Welcome, {{ auth()->user()->name }}!</strong></h3>
+                            @if(auth()->user()->client)
+                                <p class="mb-1">
+                                    <i class="fas fa-id-card me-2"></i>
+                                    Client ID: <strong>{{ auth()->user()->client->client_number }}</strong>
+                                </p>
+                                <p class="mb-1">
+                                    <i class="fas fa-briefcase me-2"></i>
+                                    {{ ucfirst(auth()->user()->client->occupation ?? 'N/A') }}
+                                    @if(auth()->user()->client->employer)
+                                        at {{ auth()->user()->client->employer }}
+                                    @endif
+                                </p>
+                                <p class="mb-0">
+                                    <i class="fas fa-phone me-2"></i>
+                                    {{ auth()->user()->client->phone }} | 
+                                    <i class="fas fa-envelope me-2 ms-2"></i>
+                                    {{ auth()->user()->client->email }}
+                                </p>
+                            @else
+                                <p class="mb-0">Manage your loans, savings, and payments easily</p>
+                            @endif
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+        
+        <div class="col-lg-4">
+            <div class="card shadow border-0">
+                <div class="card-body">
+                    <h6 class="mb-3"><i class="fas fa-user-check me-2 text-primary"></i>Account Status</h6>
+                    @if(auth()->user()->client)
+                        <div class="mb-2">
+                            <small class="text-muted">KYC Status:</small>
+                            <span class="badge bg-{{ auth()->user()->client->kyc_status === 'verified' ? 'success' : 'warning' }} float-end">
+                                {{ ucfirst(auth()->user()->client->kyc_status) }}
+                            </span>
+                        </div>
+                        <div class="mb-2">
+                            <small class="text-muted">Account Status:</small>
+                            <span class="badge bg-{{ auth()->user()->client->status === 'active' ? 'success' : 'secondary' }} float-end">
+                                {{ ucfirst(auth()->user()->client->status) }}
+                            </span>
+                        </div>
+                        <div class="mb-2">
+                            <small class="text-muted">Member Since:</small>
+                            <span class="float-end"><strong>{{ auth()->user()->client->created_at->format('M Y') }}</strong></span>
+                        </div>
+                        <div>
+                            <small class="text-muted">Branch:</small>
+                            <span class="float-end"><strong>{{ auth()->user()->client->branch->name ?? 'N/A' }}</strong></span>
+                        </div>
+                    @else
+                        <p class="text-muted">No client profile linked</p>
+                    @endif
+                </div>
             </div>
         </div>
     </div>
@@ -111,10 +180,10 @@
                                                 #{{ $loan->id }}
                                             </div>
                                         </td>
-                                        <td>${{ number_format($loan->principal_amount, 2) }}</td>
-                                        <td>${{ number_format($loan->outstanding_balance, 2) }}</td>
-                                        <td>${{ number_format($loan->monthly_payment, 2) }}</td>
-                                        <td>{{ $loan->next_payment_date ? $loan->next_payment_date->format('M d, Y') : 'N/A' }}</td>
+                                        <td>${{ number_format($loan->amount ?? $loan->principal_amount ?? 0, 2) }}</td>
+                                        <td>${{ number_format($loan->outstanding_balance ?? 0, 2) }}</td>
+                                        <td>${{ number_format($loan->calculateMonthlyPayment() ?? 0, 2) }}</td>
+                                        <td>{{ $loan->getNextPaymentDue() ? $loan->getNextPaymentDue()->format('M d, Y') : 'N/A' }}</td>
                                         <td>
                                             <span class="badge bg-{{ $loan->status === 'active' ? 'success' : ($loan->status === 'overdue' ? 'danger' : 'warning') }}">
                                                 {{ ucfirst($loan->status) }}
@@ -333,6 +402,42 @@
     </div>
 </div>
 @endsection
+
+<style>
+.bg-gradient-primary {
+    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+}
+
+.stat-card {
+    border: none;
+    border-radius: 12px;
+    box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+    transition: transform 0.3s ease, box-shadow 0.3s ease;
+}
+
+.stat-card:hover {
+    transform: translateY(-5px);
+    box-shadow: 0 8px 15px rgba(0, 0, 0, 0.2);
+}
+
+.stat-icon {
+    font-size: 2.5rem;
+    opacity: 0.8;
+    float: right;
+}
+
+.stat-value {
+    font-size: 2rem;
+    font-weight: bold;
+    margin-top: 0.5rem;
+}
+
+.stat-label {
+    font-size: 0.9rem;
+    opacity: 0.9;
+    margin-top: 0.5rem;
+}
+</style>
 
 @section('scripts')
 <script>

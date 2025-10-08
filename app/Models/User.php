@@ -86,6 +86,22 @@ class User extends Authenticatable
     }
 
     /**
+     * Get loans created by this user.
+     */
+    public function loans()
+    {
+        return $this->hasMany(Loan::class, 'created_by');
+    }
+
+    /**
+     * Get clients created by this user.
+     */
+    public function clients()
+    {
+        return $this->hasMany(Client::class, 'created_by');
+    }
+
+    /**
      * Check if user has 2FA enabled.
      */
     public function hasTwoFactorEnabled(): bool
