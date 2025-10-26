@@ -15,6 +15,71 @@ Route::get('/', function () {
 
 Route::get('/dashboard', [App\Http\Controllers\DashboardController::class, 'index'])->middleware(['auth', 'verified'])->name('dashboard');
 
+// Role-specific Dashboard Routes
+Route::middleware(['auth', 'verified'])->group(function () {
+    // Admin Dashboard - only admin role
+    Route::middleware('role:admin')->group(function () {
+        Route::get('/admin/dashboard', [App\Http\Controllers\AdminDashboardController::class, 'index'])->name('admin.dashboard');
+        Route::get('/admin/dashboard/realtime', [App\Http\Controllers\AdminDashboardController::class, 'getRealtimeData'])->name('admin.dashboard.realtime');
+        Route::get('/admin/dashboard/export', [App\Http\Controllers\AdminDashboardController::class, 'export'])->name('admin.dashboard.export');
+        
+        // Real-time loan approval endpoints
+        Route::post('/admin/loans/{loan}/approve', [App\Http\Controllers\AdminDashboardController::class, 'approveLoan'])->name('admin.loans.approve');
+        Route::post('/admin/loans/{loan}/reject', [App\Http\Controllers\AdminDashboardController::class, 'rejectLoan'])->name('admin.loans.reject');
+        
+        // Live feed endpoints
+        Route::get('/admin/dashboard/pending-approvals', [App\Http\Controllers\AdminDashboardController::class, 'getPendingApprovals'])->name('admin.dashboard.pending-approvals');
+        Route::get('/admin/dashboard/live-feed', [App\Http\Controllers\AdminDashboardController::class, 'getLiveFeed'])->name('admin.dashboard.live-feed');
+    });
+
+    // Branch Manager Dashboard - only branch_manager role
+    Route::middleware('role:branch_manager')->group(function () {
+        Route::get('/branch-manager/dashboard', [App\Http\Controllers\BranchManagerDashboardController::class, 'index'])->name('branch-manager.dashboard');
+        Route::get('/branch-manager/dashboard/realtime', [App\Http\Controllers\BranchManagerDashboardController::class, 'getRealtimeData'])->name('branch-manager.dashboard.realtime');
+        Route::get('/branch-manager/dashboard/export', [App\Http\Controllers\BranchManagerDashboardController::class, 'exportReport'])->name('branch-manager.dashboard.export');
+    });
+
+    // Loan Officer Dashboard - only loan_officer role
+    Route::middleware('role:loan_officer')->group(function () {
+        Route::get('/loan-officer/dashboard', [App\Http\Controllers\LoanOfficerDashboardController::class, 'index'])->name('loan-officer.dashboard');
+        Route::get('/loan-officer/dashboard/realtime', [App\Http\Controllers\LoanOfficerDashboardController::class, 'getRealtimeData'])->name('loan-officer.dashboard.realtime');
+        Route::get('/loan-officer/dashboard/export', [App\Http\Controllers\LoanOfficerDashboardController::class, 'exportReport'])->name('loan-officer.dashboard.export');
+    });
+});
+
+// Dashboard API Routes for real-time updates
+Route::middleware('auth')->group(function () {
+    Route::get('/dashboard/data', [App\Http\Controllers\DashboardController::class, 'getDashboardData'])->name('dashboard.data');
+    Route::get('/dashboard/realtime', [App\Http\Controllers\DashboardController::class, 'getRealtimeUpdates'])->name('dashboard.realtime');
+    Route::post('/dashboard/clear-cache', [App\Http\Controllers\DashboardController::class, 'clearCache'])->name('dashboard.clear-cache');
+    Route::get('/dashboard/export', [App\Http\Controllers\DashboardController::class, 'exportDashboardData'])->name('dashboard.export');
+    Route::get('/dashboard/financial-summary', [App\Http\Controllers\DashboardController::class, 'getFinancialSummary'])->name('dashboard.financial-summary');
+    Route::get('/dashboard/recent-activities', [App\Http\Controllers\DashboardController::class, 'getRecentActivities'])->name('dashboard.recent-activities');
+    Route::get('/dashboard/pending-approvals', [App\Http\Controllers\DashboardController::class, 'getPendingApprovals'])->name('dashboard.pending-approvals');
+    Route::get('/dashboard/system-alerts', [App\Http\Controllers\DashboardController::class, 'getSystemAlerts'])->name('dashboard.system-alerts');
+    Route::get('/dashboard/chart-data', [App\Http\Controllers\DashboardController::class, 'getChartData'])->name('dashboard.chart-data');
+    Route::get('/dashboard/branch/{branchId}', [App\Http\Controllers\DashboardController::class, 'getBranchData'])->name('dashboard.branch');
+    Route::get('/dashboard/user/{userId}', [App\Http\Controllers\DashboardController::class, 'getUserData'])->name('dashboard.user');
+    
+    // Real-time Activity Routes
+    Route::prefix('realtime')->name('realtime.')->group(function () {
+        Route::get('/activities/all', [App\Http\Controllers\RealtimeActivityController::class, 'getAllUserActivities'])->name('activities.all');
+        Route::get('/activities/my', [App\Http\Controllers\RealtimeActivityController::class, 'getMyActivities'])->name('activities.my');
+        Route::get('/activities/user/{userId}', [App\Http\Controllers\RealtimeActivityController::class, 'getUserActivities'])->name('activities.user');
+        Route::get('/activities/branch', [App\Http\Controllers\RealtimeActivityController::class, 'getBranchActivities'])->name('activities.branch');
+        Route::get('/activities/financial', [App\Http\Controllers\RealtimeActivityController::class, 'getFinancialActivities'])->name('activities.financial');
+        Route::get('/activities/statistics', [App\Http\Controllers\RealtimeActivityController::class, 'getActivityStatistics'])->name('activities.statistics');
+        Route::get('/activities/feed', [App\Http\Controllers\RealtimeActivityController::class, 'getActivityFeed'])->name('activities.feed');
+        Route::get('/activities/summary', [App\Http\Controllers\RealtimeActivityController::class, 'getActivitySummary'])->name('activities.summary');
+        Route::get('/notifications/pending-approvals', [App\Http\Controllers\RealtimeActivityController::class, 'getPendingApprovalNotifications'])->name('notifications.pending-approvals');
+        Route::get('/system/health', [App\Http\Controllers\RealtimeActivityController::class, 'getSystemHealthIndicators'])->name('system.health');
+        Route::get('/users/active', [App\Http\Controllers\RealtimeActivityController::class, 'getActiveUsers'])->name('users.active');
+        Route::get('/branches/activity-summary', [App\Http\Controllers\RealtimeActivityController::class, 'getBranchActivitySummary'])->name('branches.activity-summary');
+        Route::get('/updates', [App\Http\Controllers\RealtimeActivityController::class, 'getRealtimeUpdates'])->name('updates');
+        Route::post('/cache/clear', [App\Http\Controllers\RealtimeActivityController::class, 'clearActivityCache'])->name('cache.clear');
+    });
+});
+
 Route::middleware('auth')->group(function () {
     Route::get('/profile', [ProfileController::class, 'edit'])->name('profile.edit');
     Route::patch('/profile', [ProfileController::class, 'update'])->name('profile.update');
@@ -30,12 +95,84 @@ Route::middleware('auth')->group(function () {
     Route::post('clients/{client}/suspend', [App\Http\Controllers\ClientController::class, 'suspend'])->name('clients.suspend');
     Route::post('clients/{client}/activate', [App\Http\Controllers\ClientController::class, 'activate'])->name('clients.activate');
     
+    // KYC Document Management
+    Route::resource('kyc-documents', App\Http\Controllers\KycDocumentController::class);
+    Route::post('kyc-documents/{kycDocument}/verify', [App\Http\Controllers\KycDocumentController::class, 'verify'])->name('kyc-documents.verify');
+    Route::get('kyc-documents/{kycDocument}/download', [App\Http\Controllers\KycDocumentController::class, 'download'])->name('kyc-documents.download');
+    
+    // Collateral Management
+    Route::resource('collaterals', App\Http\Controllers\CollateralController::class);
+    Route::post('collaterals/{collateral}/verify', [App\Http\Controllers\CollateralController::class, 'verify'])->name('collaterals.verify');
+    Route::get('collaterals/{collateral}/documents/{index}/download', [App\Http\Controllers\CollateralController::class, 'downloadDocument'])->name('collaterals.documents.download');
+    
+    // Transaction Management
+    Route::resource('transactions', App\Http\Controllers\TransactionController::class);
+    Route::post('transactions/{transaction}/approve', [App\Http\Controllers\TransactionController::class, 'approve'])->name('transactions.approve');
+    Route::post('transactions/{transaction}/reverse', [App\Http\Controllers\TransactionController::class, 'reverse'])->name('transactions.reverse');
+    Route::get('api/transactions', [App\Http\Controllers\TransactionController::class, 'getTransactions'])->name('transactions.api');
+    
+    // Loan Repayments Management
+    Route::get('loan-repayments', [App\Http\Controllers\LoanRepaymentController::class, 'index'])->name('loan-repayments.index');
+    Route::get('loan-repayments/create', [App\Http\Controllers\LoanRepaymentController::class, 'create'])->name('loan-repayments.create');
+    Route::post('loan-repayments', [App\Http\Controllers\LoanRepaymentController::class, 'store'])->name('loan-repayments.store');
+    Route::get('loan-repayments/{repayment}', [App\Http\Controllers\LoanRepaymentController::class, 'show'])->name('loan-repayments.show');
+    Route::get('loan-repayments/stats', [App\Http\Controllers\LoanRepaymentController::class, 'getStats'])->name('loan-repayments.stats');
+    
+    // Risk Assessment Management
+    Route::get('risk-assessment', [App\Http\Controllers\RiskAssessmentController::class, 'index'])->name('risk-assessment.index');
+    Route::get('risk-assessment/pending', [App\Http\Controllers\RiskAssessmentController::class, 'pending'])->name('risk-assessment.pending');
+    Route::get('risk-assessment/{riskProfile}', [App\Http\Controllers\RiskAssessmentController::class, 'show'])->name('risk-assessment.show');
+    Route::post('risk-assessment/clients/{client}/assess', [App\Http\Controllers\RiskAssessmentController::class, 'assess'])->name('risk-assessment.assess');
+    Route::post('risk-assessment/clients/{client}/reassess', [App\Http\Controllers\RiskAssessmentController::class, 'reassess'])->name('risk-assessment.reassess');
+    Route::post('risk-assessment/batch-assess', [App\Http\Controllers\RiskAssessmentController::class, 'batchAssess'])->name('risk-assessment.batch-assess');
+    
+    // Approval Workflows
+    Route::resource('approval-workflows', App\Http\Controllers\ApprovalWorkflowController::class);
+    
+    // Unified Approval Center (Admin Only)
+    Route::get('approval-center', [App\Http\Controllers\ApprovalCenterController::class, 'index'])->name('approval-center.index');
+    Route::get('approval-center/stats', [App\Http\Controllers\ApprovalCenterController::class, 'getStats'])->name('approval-center.stats');
+    Route::post('approval-center/loans/{loan}/approve', [App\Http\Controllers\ApprovalCenterController::class, 'approveLoan'])->name('approval-center.loans.approve');
+    Route::post('approval-center/loans/{loan}/reject', [App\Http\Controllers\ApprovalCenterController::class, 'rejectLoan'])->name('approval-center.loans.reject');
+    Route::post('approval-center/savings/{savings}/approve', [App\Http\Controllers\ApprovalCenterController::class, 'approveSavings'])->name('approval-center.savings.approve');
+    Route::post('approval-center/savings/{savings}/reject', [App\Http\Controllers\ApprovalCenterController::class, 'rejectSavings'])->name('approval-center.savings.reject');
+    Route::post('approval-center/kyc/{kyc}/approve', [App\Http\Controllers\ApprovalCenterController::class, 'approveKyc'])->name('approval-center.kyc.approve');
+    Route::post('approval-center/kyc/{kyc}/reject', [App\Http\Controllers\ApprovalCenterController::class, 'rejectKyc'])->name('approval-center.kyc.reject');
+    Route::post('approval-center/collateral/{collateral}/approve', [App\Http\Controllers\ApprovalCenterController::class, 'approveCollateral'])->name('approval-center.collateral.approve');
+    Route::post('approval-center/collateral/{collateral}/reject', [App\Http\Controllers\ApprovalCenterController::class, 'rejectCollateral'])->name('approval-center.collateral.reject');
+    Route::post('approval-center/clients/{client}/approve', [App\Http\Controllers\ApprovalCenterController::class, 'approveClient'])->name('approval-center.clients.approve');
+    Route::post('approval-center/clients/{client}/reject', [App\Http\Controllers\ApprovalCenterController::class, 'rejectClient'])->name('approval-center.clients.reject');
+    
+    // Recovery Actions
+    Route::resource('recovery-actions', App\Http\Controllers\RecoveryActionController::class);
+    
+    // Communication Logs
+    Route::resource('communication-logs', App\Http\Controllers\CommunicationLogController::class);
+    
+    // Staff Management
+    Route::resource('staff', App\Http\Controllers\StaffController::class);
+    Route::post('staff/{staff}/activate', [App\Http\Controllers\StaffController::class, 'activate'])->name('staff.activate');
+    Route::post('staff/{staff}/deactivate', [App\Http\Controllers\StaffController::class, 'deactivate'])->name('staff.deactivate');
+    
+    // Payroll Management
+    Route::resource('payrolls', App\Http\Controllers\PayrollController::class);
+    Route::post('payrolls/{payroll}/process', [App\Http\Controllers\PayrollController::class, 'process'])->name('payrolls.process');
+    
     // Loan Management - All authenticated users
     Route::resource('loans', App\Http\Controllers\LoanController::class);
     Route::post('loans/{loan}/approve', [App\Http\Controllers\LoanController::class, 'approve'])->name('loans.approve');
     Route::post('loans/{loan}/reject', [App\Http\Controllers\LoanController::class, 'reject'])->name('loans.reject');
     Route::post('loans/{loan}/disburse', [App\Http\Controllers\LoanController::class, 'disburse'])->name('loans.disburse');
     Route::post('loans/{loan}/repay', [App\Http\Controllers\LoanController::class, 'repay'])->name('loans.repay');
+    
+    // Payment Schedule routes
+    Route::get('loans/{loan}/payment-schedule', [App\Http\Controllers\LoanController::class, 'paymentSchedule'])->name('loans.payment-schedule');
+    Route::post('loans/{loan}/generate-schedule', [App\Http\Controllers\LoanController::class, 'generateSchedule'])->name('loans.generate-schedule');
+    Route::get('loans/{loan}/print-schedule', [App\Http\Controllers\LoanController::class, 'printSchedule'])->name('loans.print-schedule');
+    
+    // Loan Repayment routes
+    Route::get('loans/{loan}/repayment', [App\Http\Controllers\LoanController::class, 'repaymentForm'])->name('loans.repayment');
+    Route::post('loans/{loan}/process-repayment', [App\Http\Controllers\LoanController::class, 'processRepayment'])->name('loans.process-repayment');
     
     Route::resource('loan-applications', App\Http\Controllers\LoanApplicationController::class);
     
@@ -48,6 +185,9 @@ Route::middleware('auth')->group(function () {
     // User Management - Admin only
     Route::resource('users', App\Http\Controllers\UsersController::class)
         ->middleware('role:admin');
+    
+    // Accounting Routes - Include the accounting module
+    require __DIR__.'/accounting.php';
     
     // Collections Management - Loan Officers and above
     Route::resource('collections', App\Http\Controllers\CollectionsController::class)
@@ -179,8 +319,9 @@ Route::middleware('auth')->group(function () {
     })->middleware('role:admin');
     
     // Borrower Portal
-    Route::prefix('borrower')->name('borrower.')->group(function () {
+    Route::prefix('borrower')->name('borrower.')->middleware('role:borrower')->group(function () {
         Route::get('/dashboard', [App\Http\Controllers\BorrowerController::class, 'dashboard'])->name('dashboard');
+        Route::get('/dashboard/realtime', [App\Http\Controllers\BorrowerController::class, 'getRealtimeData'])->name('dashboard.realtime');
         Route::get('/profile', [App\Http\Controllers\BorrowerController::class, 'profile'])->name('profile');
         Route::put('/profile', [App\Http\Controllers\BorrowerController::class, 'updateProfile'])->name('profile.update');
         
@@ -200,6 +341,9 @@ Route::middleware('auth')->group(function () {
         // Payments
         Route::get('/payments/create', [App\Http\Controllers\BorrowerController::class, 'paymentForm'])->name('payments.create');
         Route::post('/payments', [App\Http\Controllers\BorrowerController::class, 'processPayment'])->name('payments.store');
+        
+        // Reports
+        Route::get('/reports/financial', [App\Http\Controllers\BorrowerReportController::class, 'financial'])->name('reports.financial');
     });
 });
 

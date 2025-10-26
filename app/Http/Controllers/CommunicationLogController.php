@@ -8,10 +8,45 @@ use Illuminate\Http\Request;
 
 class CommunicationLogController extends Controller
 {
-    public function index()
+    public function index(Request $request)
     {
-        $logs = CommunicationLog::with('client', 'user')->latest()->paginate(20);
-        return view('communication-logs.index', compact('logs'));
+        $user = auth()->user();
+        
+        $query = CommunicationLog::with(['client', 'sentBy']);
+        
+        // Filter by branch
+        if (!$user->hasRole('admin') && $user->branch_id) {
+            $query->whereHas('client', function($q) use ($user) {
+                $q->where('branch_id', $user->branch_id);
+            });
+        }
+        
+        // Apply filters
+        if ($request->filled('type')) {
+            $query->where('type', $request->type);
+        }
+        
+        if ($request->filled('status')) {
+            $query->where('status', $request->status);
+        }
+        
+        if ($request->filled('client_id')) {
+            $query->where('client_id', $request->client_id);
+        }
+        
+        $logs = $query->orderBy('sent_at', 'desc')->paginate(20);
+        
+        // Get statistics
+        $stats = [
+            'total_communications' => CommunicationLog::count(),
+            'today' => CommunicationLog::whereDate('sent_at', today())->count(),
+            'this_week' => CommunicationLog::whereBetween('sent_at', [now()->startOfWeek(), now()->endOfWeek()])->count(),
+            'this_month' => CommunicationLog::whereMonth('sent_at', now()->month)->count(),
+        ];
+        
+        $clients = Client::orderBy('first_name')->get();
+        
+        return view('communication-logs.index', compact('logs', 'stats', 'clients'));
     }
 
     public function create()

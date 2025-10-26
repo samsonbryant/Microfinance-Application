@@ -54,8 +54,7 @@
                                            step="0.01" min="0" required>
                                     <select class="form-select" style="max-width: 100px;" name="currency">
                                         <option value="USD" selected>USD</option>
-                                        <option value="EUR">EUR</option>
-                                        <option value="GBP">GBP</option>
+                                        <option value="EUR">LRD</option>
                                     </select>
                                 </div>
                                 @error('amount')
@@ -124,9 +123,9 @@
                                 <label for="interest_rate" class="form-label">Interest Rate <span class="text-danger">*</span></label>
                                 <div class="input-group">
                                     <input type="number" class="form-control @error('interest_rate') is-invalid @enderror" 
-                                           id="interest_rate" name="interest_rate" value="{{ old('interest_rate', 0.01) }}" 
-                                           step="0.01" min="0" required>
-                                    <span class="input-group-text">%</span>
+                                           id="interest_rate" name="interest_rate" value="{{ old('interest_rate', 25) }}" 
+                                           step="25" min="0" required>
+                                    <span class="input-group-text">Percentage (%)</span>
                                 </div>
                                 @error('interest_rate')
                                     <div class="invalid-feedback d-block">{{ $message }}</div>
@@ -388,26 +387,52 @@
                     <p class="text-muted">Configure journal accounts</p>
 
                     @php
-                        $accounts = \App\Models\ChartOfAccount::where('is_active', true)->get();
-                        $cashAccount = $accounts->where('name', 'Cash')->first();
-                        $loansReceivableAccount = $accounts->where('name', 'Loans Receivable')->first();
-                        $interestIncomeAccount = $accounts->where('name', 'Interest Income')->first();
-                        $feesIncomeAccount = $accounts->where('name', 'Fees Income')->first();
-                        $penaltiesIncomeAccount = $accounts->where('name', 'Penalties Income')->first();
-                        $overpaymentAccount = $accounts->where('name', 'Loans Overpayment')->first();
+                        $accounts = \App\Models\ChartOfAccount::where('is_active', true)->orderBy('code')->get();
+                        
+                        // Group accounts by type for better organization
+                        $assetAccounts = $accounts->where('type', 'asset');
+                        $revenueAccounts = $accounts->where('type', 'revenue');
+                        $liabilityAccounts = $accounts->where('type', 'liability');
+                        
+                        // Smart defaults based on account categories
+                        $cashAccount = $accounts->where('category', 'cash_on_hand')->first() ?? 
+                                      $accounts->where('category', 'cash_in_bank')->first() ?? 
+                                      $accounts->where('name', 'ILIKE', '%cash%')->first();
+                        
+                        $loansReceivableAccount = $accounts->where('category', 'loan_portfolio')->first() ?? 
+                                                 $accounts->where('name', 'ILIKE', '%loan%receivable%')->first();
+                        
+                        $interestIncomeAccount = $accounts->where('category', 'loan_interest_income')->first() ?? 
+                                               $accounts->where('name', 'ILIKE', '%interest%income%')->first();
+                        
+                        $feesIncomeAccount = $accounts->where('category', 'service_fees')->first() ?? 
+                                           $accounts->where('name', 'ILIKE', '%fee%income%')->first();
+                        
+                        $penaltiesIncomeAccount = $accounts->where('category', 'penalty_income')->first() ?? 
+                                                $accounts->where('name', 'ILIKE', '%penalty%income%')->first();
+                        
+                        $overpaymentAccount = $liabilityAccounts->where('name', 'ILIKE', '%overpayment%')->first() ?? 
+                                            $liabilityAccounts->first();
                     @endphp
 
                     <div class="mb-3">
-                        <label for="funding_account_id" class="form-label">Funding Account</label>
-                        <select class="form-select" id="funding_account_id" name="funding_account_id">
+                        <label for="funding_account_id" class="form-label">
+                            <i class="fas fa-university me-1 text-primary"></i>Funding Account
+                        </label>
+                        <select class="form-select" id="funding_account_id" name="funding_account_id" required>
                             <option value="">Select Account</option>
-                            @foreach($accounts as $account)
-                                <option value="{{ $account->id }}" {{ ($cashAccount && $cashAccount->id == $account->id) ? 'selected' : '' }}>
-                                    {{ $account->code }} - {{ $account->name }}
-                                </option>
-                            @endforeach
+                            <optgroup label="🏦 Asset Accounts">
+                                @foreach($assetAccounts as $account)
+                                    <option value="{{ $account->id }}" 
+                                            {{ ($cashAccount && $cashAccount->id == $account->id) ? 'selected' : '' }}
+                                            data-balance="{{ $account->getCurrentBalance() ?? 0 }}">
+                                        {{ $account->code }} - {{ $account->name }} 
+                                        (Balance: ${{ number_format($account->getCurrentBalance() ?? 0, 2) }})
+                                    </option>
+                                @endforeach
+                            </optgroup>
                         </select>
-                        <small class="text-muted">Select the source of the Principal Amount to be disbursed.</small>
+                        <small class="text-muted">Select the source account for loan disbursement (typically Cash or Bank account)</small>
                     </div>
 
                     <div class="mb-3">

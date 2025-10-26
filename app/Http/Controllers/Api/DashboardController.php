@@ -70,6 +70,50 @@ class DashboardController extends Controller
         ]);
     }
 
+    /**
+     * Get recent activities
+     */
+    public function getRecentActivities()
+    {
+        $user = auth()->user();
+        $branchId = $user->branch_id;
+
+        try {
+            // Get recent activities from activity log
+            $activities = \Spatie\Activitylog\Models\Activity::with(['causer', 'subject'])
+                ->when($branchId && !$user->hasRole('admin'), function ($query) use ($branchId) {
+                    $query->whereHas('subject', function ($q) use ($branchId) {
+                        $q->where('branch_id', $branchId);
+                    });
+                })
+                ->orderBy('created_at', 'desc')
+                ->limit(20)
+                ->get()
+                ->map(function ($activity) {
+                    return [
+                        'id' => $activity->id,
+                        'description' => $activity->description,
+                        'user' => $activity->causer->name ?? 'System',
+                        'subject_type' => class_basename($activity->subject_type ?? ''),
+                        'subject_id' => $activity->subject_id,
+                        'created_at' => $activity->created_at->format('Y-m-d H:i:s'),
+                        'log_name' => $activity->log_name,
+                    ];
+                });
+
+            return response()->json([
+                'success' => true,
+                'activities' => $activities,
+                'timestamp' => now()->toISOString()
+            ]);
+        } catch (\Exception $e) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Error fetching activities: ' . $e->getMessage()
+            ], 500);
+        }
+    }
+
     private function getBranchQuery($branchId, $userRole = null)
     {
         return function ($model) use ($branchId, $userRole) {

@@ -19,6 +19,7 @@ class Loan extends Model
         'currency',
         'interest_rate',
         'term_months',
+        'loan_term',
         'payment_frequency',
         'disbursement_date',
         'release_date',
@@ -45,7 +46,21 @@ class Loan extends Model
         'total_paid',
         'penalty_rate',
         'notes',
-        'created_by'
+        'created_by',
+        'loan_purpose',
+        'application_date',
+        'approved_by',
+        'approved_at',
+        'rejected_by',
+        'rejected_at',
+        'reviewed_by',
+        'reviewed_at',
+        'monthly_payment',
+        'total_interest',
+        'total_amount',
+        'repayment_schedule',
+        'next_due_date',
+        'next_payment_amount',
     ];
 
     protected $casts = [
@@ -61,8 +76,18 @@ class Loan extends Model
         'disbursement_date' => 'date',
         'release_date' => 'date',
         'due_date' => 'date',
+        'application_date' => 'date',
+        'next_due_date' => 'date',
+        'approved_at' => 'datetime',
+        'rejected_at' => 'datetime',
+        'reviewed_at' => 'datetime',
         'repayment_days' => 'array',
         'files' => 'array',
+        'repayment_schedule' => 'array',
+        'monthly_payment' => 'decimal:2',
+        'total_interest' => 'decimal:2',
+        'total_amount' => 'decimal:2',
+        'next_payment_amount' => 'decimal:2',
     ];
 
     // Relationships

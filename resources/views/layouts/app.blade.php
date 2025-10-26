@@ -9,6 +9,7 @@
     <meta name="application-name" content="Microfinance MMS">
     <meta name="description" content="Comprehensive Microfinance Management System">
     <meta name="theme-color" content="#007bff">
+    <meta name="mobile-web-app-capable" content="yes">
     <meta name="apple-mobile-web-app-capable" content="yes">
     <meta name="apple-mobile-web-app-status-bar-style" content="default">
     <meta name="apple-mobile-web-app-title" content="Microfinance MMS">
@@ -18,15 +19,8 @@
     <!-- PWA Manifest -->
     <link rel="manifest" href="{{ asset('manifest.json') }}">
     
-    <!-- Apple Touch Icons -->
-    <link rel="apple-touch-icon" href="{{ asset('icons/icon-192x192.png') }}">
-    <link rel="apple-touch-icon" sizes="152x152" href="{{ asset('icons/icon-152x152.png') }}">
-    <link rel="apple-touch-icon" sizes="180x180" href="{{ asset('icons/icon-180x180.png') }}">
-    <link rel="apple-touch-icon" sizes="167x167" href="{{ asset('icons/icon-167x167.png') }}">
-    
     <!-- Favicon -->
-    <link rel="icon" type="image/png" sizes="32x32" href="{{ asset('icons/icon-32x32.png') }}">
-    <link rel="icon" type="image/png" sizes="16x16" href="{{ asset('icons/icon-16x16.png') }}">
+    <link rel="icon" href="{{ asset('favicon.ico') }}" type="image/x-icon">
 
         <title>{{ config('app.name', 'Laravel') }}</title>
 
@@ -273,6 +267,149 @@
                     justify-content: space-between;
                 }
             }
+
+            /* Sidebar Financial Metrics Styles */
+            .sidebar-financial-metrics {
+                padding: 1rem;
+                border-bottom: 1px solid #e9ecef;
+                background: linear-gradient(135deg, #f8f9fa 0%, #e9ecef 100%);
+            }
+            
+            .metrics-header {
+                margin-bottom: 1rem;
+                text-align: center;
+            }
+            
+            .metrics-header h6 {
+                color: #2c3e50;
+                font-weight: 600;
+                margin-bottom: 0.25rem;
+            }
+            
+            .metrics-section {
+                margin-bottom: 1.5rem;
+            }
+            
+            .metrics-section:last-child {
+                margin-bottom: 0;
+            }
+            
+            .metrics-title {
+                font-size: 0.875rem;
+                font-weight: 600;
+                color: #495057;
+                margin-bottom: 0.75rem;
+                text-transform: uppercase;
+                letter-spacing: 0.5px;
+            }
+            
+            .metric-item {
+                display: flex;
+                align-items: center;
+                padding: 0.75rem;
+                margin-bottom: 0.5rem;
+                background: white;
+                border-radius: 8px;
+                box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+                transition: all 0.3s ease;
+            }
+            
+            .metric-item:hover {
+                transform: translateY(-2px);
+                box-shadow: 0 4px 8px rgba(0,0,0,0.15);
+            }
+            
+            .metric-item:last-child {
+                margin-bottom: 0;
+            }
+            
+            .metric-icon {
+                width: 45px;
+                height: 45px;
+                border-radius: 10px;
+                display: flex;
+                align-items: center;
+                justify-content: center;
+                margin-right: 0.75rem;
+                color: white;
+                font-size: 1.1rem;
+            }
+            
+            .metric-content {
+                flex: 1;
+                min-width: 0;
+            }
+            
+            .metric-value {
+                font-size: 1.1rem;
+                font-weight: 700;
+                color: #2c3e50;
+                line-height: 1.2;
+            }
+            
+            .metric-label {
+                font-size: 0.8rem;
+                color: #6c757d;
+                font-weight: 500;
+                margin-top: 0.25rem;
+            }
+            
+            .metric-amount {
+                font-size: 0.75rem;
+                color: #28a745;
+                font-weight: 600;
+                margin-top: 0.25rem;
+            }
+            
+            .metric-sub {
+                font-size: 0.7rem;
+                color: #6c757d;
+                margin-top: 0.25rem;
+            }
+            
+            /* Real-time update indicator */
+            .realtime-indicator {
+                position: relative;
+            }
+            
+            .realtime-indicator::after {
+                content: '';
+                position: absolute;
+                top: -2px;
+                right: -2px;
+                width: 8px;
+                height: 8px;
+                background: #28a745;
+                border-radius: 50%;
+                animation: pulse 2s infinite;
+            }
+            
+            @keyframes pulse {
+                0% { opacity: 1; transform: scale(1); }
+                50% { opacity: 0.5; transform: scale(1.2); }
+                100% { opacity: 1; transform: scale(1); }
+            }
+            
+            /* Responsive adjustments for sidebar metrics */
+            @media (max-width: 768px) {
+                .sidebar-financial-metrics {
+                    padding: 0.75rem;
+                }
+                
+                .metric-item {
+                    padding: 0.5rem;
+                }
+                
+                .metric-icon {
+                    width: 35px;
+                    height: 35px;
+                    font-size: 0.9rem;
+                }
+                
+                .metric-value {
+                    font-size: 1rem;
+                }
+            }
         </style>
 
         <!-- Scripts -->
@@ -283,7 +420,12 @@
     <!-- Sidebar -->
             @auth
                 @php
-                    $userRole = auth()->user()->getRoleNames()->first() ?? 'admin';
+                    // Ensure role is one of the supported roles; default to 'borrower' if unknown
+                    $userRole = auth()->user()->getRoleNames()->first();
+                    $allowedRoles = ['admin', 'general_manager', 'branch_manager', 'loan_officer', 'hr', 'borrower'];
+                    if (!in_array($userRole, $allowedRoles, true)) {
+                        $userRole = 'borrower';
+                    }
                 @endphp
                 <x-sidebar :role="$userRole" />
             @endauth
@@ -424,7 +566,161 @@
                         }
                     }
                 });
+
+                // Real-time sidebar updates
+                startSidebarUpdates();
             });
+
+            // Real-time sidebar updates function
+            function startSidebarUpdates() {
+                let lastUpdate = new Date();
+                
+                // Update sidebar metrics every 30 seconds
+                setInterval(function() {
+                    updateSidebarMetrics();
+                }, 30000);
+                
+                // Initial update
+                updateSidebarMetrics();
+            }
+            
+            function updateSidebarMetrics() {
+                // Determine role from the sidebar user-role text content to avoid leaking admin endpoints cross-role
+                const roleText = document.querySelector('.user-role')?.textContent?.toLowerCase() || '';
+                // Map displayed text back to machine role names
+                let role = 'borrower';
+                if (roleText.includes('admin')) role = 'admin';
+                else if (roleText.includes('general')) role = 'general_manager';
+                else if (roleText.includes('branch')) role = 'branch_manager';
+                else if (roleText.includes('loan')) role = 'loan_officer';
+                else if (roleText.includes('hr')) role = 'hr';
+                
+                // Determine the correct endpoint based on role
+                let endpoint = '/dashboard/data';
+                if (role === 'branch_manager') {
+                    endpoint = '/branch-manager/dashboard/realtime';
+                } else if (role === 'loan_officer') {
+                    endpoint = '/loan-officer/dashboard/realtime';
+                } else if (role === 'admin') {
+                    endpoint = '/admin/dashboard/realtime';
+                }
+                
+                fetch(endpoint)
+                    .then(response => response.json())
+                    .then(data => {
+                        if (data.success) {
+                            updateSidebarValues(data.data);
+                            updateLastUpdateTime();
+                        }
+                    })
+                    .catch(error => {
+                        console.error('Error updating sidebar metrics:', error);
+                    });
+            }
+            
+            function updateSidebarValues(data) {
+                // Update portfolio overview metrics
+                if (data.loans_due_today) {
+                    updateMetric('loans-due-today', data.loans_due_today.count);
+                    updateMetricAmount('loans-due-today', data.loans_due_today.amount);
+                }
+                
+                if (data.overdue_loans) {
+                    updateMetric('overdue-loans', data.overdue_loans.count);
+                    updateMetricAmount('overdue-loans', data.overdue_loans.amount);
+                }
+                
+                if (data.active_loans) {
+                    updateMetric('active-loans', data.active_loans.count);
+                    updateMetricAmount('active-loans', data.active_loans.outstanding);
+                }
+                
+                if (data.loan_requests) {
+                    updateMetric('loan-requests', data.loan_requests.count);
+                    updateMetricAmount('loan-requests', data.loan_requests.amount);
+                }
+                
+                // Update financial performance metrics
+                if (data.released_principal) {
+                    updateMetricValue('released-principal', data.released_principal.total);
+                    updateMetricSub('released-principal', data.released_principal.this_month);
+                }
+                
+                if (data.outstanding_principal) {
+                    updateMetricValue('outstanding-principal', data.outstanding_principal.total);
+                }
+                
+                if (data.interest_collected) {
+                    updateMetricValue('interest-collected', data.interest_collected.total);
+                    updateMetricSub('interest-collected', data.interest_collected.this_month);
+                }
+                
+                if (data.repayments_collected) {
+                    updateMetricValue('repayments-collected', data.repayments_collected.total);
+                    updateMetricSub('repayments-collected', data.repayments_collected.this_month);
+                }
+                
+                // Update portfolio at risk metrics
+                if (data.portfolio_at_risk) {
+                    updateMetricValue('par-14', data.portfolio_at_risk['14_day_par'].percentage + '%');
+                    updateMetricValue('par-30', data.portfolio_at_risk['30_day_par'].percentage + '%');
+                    updateMetricValue('par-total', data.portfolio_at_risk.total_par.percentage + '%');
+                }
+                
+                // Update active borrowers
+                if (data.active_borrowers) {
+                    updateMetric('active-borrowers', data.active_borrowers.count);
+                    updateMetricSub('active-borrowers', data.active_borrowers.percentage + '% of total');
+                }
+            }
+            
+            function updateMetric(id, value) {
+                const element = document.getElementById(id);
+                if (element) {
+                    element.textContent = value;
+                    element.classList.add('realtime-indicator');
+                    setTimeout(() => element.classList.remove('realtime-indicator'), 2000);
+                }
+            }
+            
+            function updateMetricValue(id, value) {
+                const element = document.getElementById(id);
+                if (element) {
+                    const formattedValue = value >= 1000 ? '$' + Math.round(value / 1000) + 'K' : '$' + Math.round(value);
+                    element.textContent = formattedValue;
+                    element.classList.add('realtime-indicator');
+                    setTimeout(() => element.classList.remove('realtime-indicator'), 2000);
+                }
+            }
+            
+            function updateMetricAmount(id, value) {
+                const element = document.getElementById(id);
+                if (element) {
+                    const amountElement = element.parentElement.querySelector('.metric-amount');
+                    if (amountElement) {
+                        amountElement.textContent = '$' + Math.round(value).toLocaleString();
+                    }
+                }
+            }
+            
+            function updateMetricSub(id, value) {
+                const element = document.getElementById(id);
+                if (element) {
+                    const subElement = element.parentElement.querySelector('.metric-sub');
+                    if (subElement) {
+                        const formattedValue = value >= 1000 ? '$' + Math.round(value / 1000) + 'K' : '$' + Math.round(value);
+                        subElement.textContent = 'This Month: ' + formattedValue;
+                    }
+                }
+            }
+            
+            function updateLastUpdateTime() {
+                const lastUpdateElement = document.getElementById('last-update');
+                if (lastUpdateElement) {
+                    const now = new Date();
+                    lastUpdateElement.textContent = 'Updated: ' + now.toLocaleTimeString();
+                }
+            }
 
             // PWA Installation
             let deferredPrompt;

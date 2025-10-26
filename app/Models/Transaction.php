@@ -15,6 +15,7 @@ class Transaction extends Model
         'status',
         'description',
         'reference_number',
+        'balance_after',
         'client_id',
         'loan_id',
         'savings_account_id',
@@ -25,6 +26,7 @@ class Transaction extends Model
 
     protected $casts = [
         'amount' => 'decimal:2',
+        'balance_after' => 'decimal:2',
         'processed_at' => 'datetime',
     ];
 

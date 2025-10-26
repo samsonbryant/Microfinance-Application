@@ -2,21 +2,24 @@
 
 namespace App\Notifications;
 
+use App\Models\Loan;
 use Illuminate\Bus\Queueable;
 use Illuminate\Contracts\Queue\ShouldQueue;
 use Illuminate\Notifications\Messages\MailMessage;
 use Illuminate\Notifications\Notification;
 
-class LoanApprovalNotification extends Notification
+class LoanApprovalNotification extends Notification implements ShouldQueue
 {
     use Queueable;
+
+    protected $loan;
 
     /**
      * Create a new notification instance.
      */
-    public function __construct()
+    public function __construct(Loan $loan)
     {
-        //
+        $this->loan = $loan;
     }
 
     /**
@@ -26,7 +29,7 @@ class LoanApprovalNotification extends Notification
      */
     public function via(object $notifiable): array
     {
-        return ['mail'];
+        return ['database', 'mail'];
     }
 
     /**
@@ -35,9 +38,18 @@ class LoanApprovalNotification extends Notification
     public function toMail(object $notifiable): MailMessage
     {
         return (new MailMessage)
-            ->line('The introduction to the notification.')
-            ->action('Notification Action', url('/'))
-            ->line('Thank you for using our application!');
+            ->subject('New Loan Application - ' . $this->loan->loan_number)
+            ->greeting('Hello ' . $notifiable->name . ',')
+            ->line('A new loan application has been submitted and requires your review.')
+            ->line('**Loan Details:**')
+            ->line('Application Number: ' . $this->loan->loan_number)
+            ->line('Amount: $' . number_format($this->loan->amount, 2))
+            ->line('Client: ' . ($this->loan->client->first_name ?? 'N/A') . ' ' . ($this->loan->client->last_name ?? ''))
+            ->line('Purpose: ' . $this->loan->loan_purpose)
+            ->line('Term: ' . $this->loan->loan_term . ' months')
+            ->action('Review Application', url('/loan-applications/' . $this->loan->id))
+            ->line('Please review this application at your earliest convenience.')
+            ->line('Thank you!');
     }
 
     /**
@@ -48,7 +60,13 @@ class LoanApprovalNotification extends Notification
     public function toArray(object $notifiable): array
     {
         return [
-            //
+            'type' => 'loan_application_submitted',
+            'loan_id' => $this->loan->id,
+            'loan_number' => $this->loan->loan_number,
+            'amount' => $this->loan->amount,
+            'client_name' => ($this->loan->client->first_name ?? 'N/A') . ' ' . ($this->loan->client->last_name ?? ''),
+            'message' => 'New loan application submitted for review',
+            'url' => '/loan-applications/' . $this->loan->id
         ];
     }
 }

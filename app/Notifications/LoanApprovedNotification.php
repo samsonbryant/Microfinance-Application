@@ -48,16 +48,25 @@ class LoanApprovedNotification extends Notification implements ShouldQueue
      */
     public function toMail(object $notifiable): MailMessage
     {
-        return (new MailMessage)
+        $mailMessage = (new MailMessage)
             ->subject('Congratulations! Your Loan Has Been Approved')
             ->greeting('Hello ' . $notifiable->name . ',')
             ->line('Congratulations! Your loan application has been approved.')
             ->line('Loan Details:')
             ->line('Amount: $' . number_format($this->loan->amount, 2))
             ->line('Interest Rate: ' . $this->loan->interest_rate . '%')
-            ->line('Term: ' . $this->loan->term_months . ' months')
-            ->line('Monthly Payment: $' . number_format($this->loan->next_payment_amount, 2))
-            ->line('First Payment Due: ' . $this->loan->next_due_date->format('M d, Y'))
+            ->line('Term: ' . $this->loan->term_months . ' months');
+        
+        // Only add payment details if they exist
+        if ($this->loan->next_payment_amount) {
+            $mailMessage->line('Monthly Payment: $' . number_format($this->loan->next_payment_amount, 2));
+        }
+        
+        if ($this->loan->next_due_date) {
+            $mailMessage->line('First Payment Due: ' . $this->loan->next_due_date->format('M d, Y'));
+        }
+        
+        return $mailMessage
             ->action('View Loan Details', url('/loans/' . $this->loan->id))
             ->line('You will be contacted shortly for disbursement arrangements.')
             ->line('Thank you for choosing our microfinance services!')

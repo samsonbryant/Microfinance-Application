@@ -84,19 +84,24 @@ class LoanApplicationForm extends Component
         try {
             DB::beginTransaction();
 
-            // Create loan application
+            // Create loan application with all required fields
             $loan = Loan::create([
                 'client_id' => $this->client_id,
+                'loan_number' => 'L' . now()->format('Ymd') . str_pad(rand(1, 9999), 4, '0', STR_PAD_LEFT),
                 'amount' => $this->amount,
+                'principal_amount' => $this->amount,
                 'interest_rate' => $this->interest_rate,
                 'term_months' => $this->term_months,
                 'loan_type' => $this->loan_type,
+                'loan_purpose' => $this->purpose,
                 'purpose' => $this->purpose,
                 'status' => 'pending',
-                'loan_officer_id' => Auth::id(),
+                'application_date' => now(),
+                'branch_id' => Auth::user()->branch_id ?? 1,
+                'created_by' => Auth::id(),
                 'outstanding_balance' => $this->amount,
-                'next_payment_amount' => $this->calculateMonthlyPayment(),
-                'next_due_date' => now()->addMonth(),
+                'payment_frequency' => 'monthly',
+                'currency' => 'USD',
             ]);
 
             // Create collateral if provided

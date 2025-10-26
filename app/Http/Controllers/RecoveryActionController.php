@@ -8,10 +8,39 @@ use Illuminate\Http\Request;
 
 class RecoveryActionController extends Controller
 {
-    public function index()
+    public function index(Request $request)
     {
-        $actions = RecoveryAction::with('loan.client', 'assignedTo')->latest()->paginate(20);
-        return view('recovery-actions.index', compact('actions'));
+        $user = auth()->user();
+        
+        $query = RecoveryAction::with(['collection.loan.client', 'performedBy']);
+        
+        // Filter by branch
+        if (!$user->hasRole('admin') && $user->branch_id) {
+            $query->whereHas('collection.loan', function($q) use ($user) {
+                $q->where('branch_id', $user->branch_id);
+            });
+        }
+        
+        // Apply filters
+        if ($request->filled('status')) {
+            $query->where('status', $request->status);
+        }
+        
+        if ($request->filled('action_type')) {
+            $query->where('action_type', $request->action_type);
+        }
+        
+        $actions = $query->orderBy('action_date', 'desc')->paginate(20);
+        
+        // Get statistics
+        $stats = [
+            'pending' => RecoveryAction::where('status', 'pending')->count(),
+            'in_progress' => RecoveryAction::where('status', 'in_progress')->count(),
+            'completed' => RecoveryAction::where('status', 'completed')->count(),
+            'total_recovered' => RecoveryAction::where('status', 'completed')->sum('outcome') ?? 0,
+        ];
+        
+        return view('recovery-actions.index', compact('actions', 'stats'));
     }
 
     public function create()

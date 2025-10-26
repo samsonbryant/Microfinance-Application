@@ -32,14 +32,49 @@
                             </tr>
                         </thead>
                         <tbody>
-                            <tr>
-                                <td colspan="7" class="text-center">
-                                    <div class="alert alert-info">
-                                        <i class="fas fa-info-circle"></i>
-                                        Payroll records will be displayed here once the payroll system is fully integrated.
-                                    </div>
-                                </td>
-                            </tr>
+                            @if(isset($payrolls) && $payrolls->count() > 0)
+                                @foreach($payrolls as $payroll)
+                                <tr>
+                                    <td>
+                                        {{ $payroll->staff->user->name ?? 'N/A' }}<br>
+                                        <small class="text-muted">{{ $payroll->staff->employee_id ?? '' }}</small>
+                                    </td>
+                                    <td>{{ $payroll->month }}</td>
+                                    <td class="text-primary"><strong>${{ number_format($payroll->basic_salary ?? 0, 2) }}</strong></td>
+                                    <td class="text-danger">${{ number_format($payroll->deductions ?? 0, 2) }}</td>
+                                    <td class="text-success"><strong>${{ number_format($payroll->net_salary ?? 0, 2) }}</strong></td>
+                                    <td>
+                                        <span class="badge bg-{{ $payroll->status === 'paid' ? 'success' : ($payroll->status === 'pending' ? 'warning' : 'info') }}">
+                                            {{ ucfirst($payroll->status) }}
+                                        </span>
+                                    </td>
+                                    <td>
+                                        <div class="btn-group">
+                                            <a href="{{ route('payrolls.show', $payroll) }}" class="btn btn-sm btn-info">
+                                                <i class="fas fa-eye"></i>
+                                            </a>
+                                            @if($payroll->status === 'pending')
+                                                <form action="{{ route('payrolls.process', $payroll) }}" method="POST" class="d-inline">
+                                                    @csrf
+                                                    <button type="submit" class="btn btn-sm btn-success" title="Process Payment">
+                                                        <i class="fas fa-check"></i>
+                                                    </button>
+                                                </form>
+                                            @endif
+                                        </div>
+                                    </td>
+                                </tr>
+                                @endforeach
+                            @else
+                                <tr>
+                                    <td colspan="7" class="text-center">
+                                        <div class="alert alert-info">
+                                            <i class="fas fa-info-circle"></i>
+                                            No payroll records found. Click "Process Payroll" to generate payroll.
+                                        </div>
+                                    </td>
+                                </tr>
+                            @endif
                         </tbody>
                     </table>
                 </div>
@@ -52,10 +87,16 @@
 @section('scripts')
 <script>
     $(document).ready(function() {
-        $('#payrollsTable').DataTable({
-            "pageLength": 25,
-            "order": [[ 1, "desc" ]]
-        });
+        // Only initialize DataTable if there's actual data (not just placeholder)
+        var $table = $('#payrollsTable');
+        var hasData = $table.find('tbody tr').length > 0 && !$table.find('tbody tr td[colspan]').length;
+        
+        if (hasData) {
+            $table.DataTable({
+                "pageLength": 25,
+                "order": [[ 1, "desc" ]]
+            });
+        }
     });
 </script>
 @endsection

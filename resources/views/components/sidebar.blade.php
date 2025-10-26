@@ -4,7 +4,7 @@
     <div class="sidebar-header">
         <div class="sidebar-brand">
             <i class="fas fa-university"></i>
-            <span class="brand-text">Microfinance MMS</span>
+            <span class="brand-text">Microbook-G5</span>
         </div>
         <button class="sidebar-toggle d-lg-none" id="sidebarToggle">
             <i class="fas fa-times"></i>
@@ -21,47 +21,188 @@
         </div>
     </div>
 
-    @if($role === 'admin')
-        <!-- Quick Stats for Admin -->
-        <div class="sidebar-quick-stats">
-            <div class="quick-stat-item">
-                <div class="quick-stat-icon bg-warning">
+    @php
+        // Get real-time financial data for sidebar
+        try {
+            $analytics = app(\App\Services\FinancialAnalyticsService::class)->getComprehensiveAnalytics(
+                $role === 'branch_manager' ? auth()->user()->branch_id : null,
+                $role === 'loan_officer' ? auth()->id() : null
+            );
+        } catch (\Exception $e) {
+            $analytics = [
+                'loans_due_today' => ['count' => 0, 'amount' => 0],
+                'overdue_loans' => ['count' => 0, 'amount' => 0, 'percentage' => 0],
+                'active_loans' => ['count' => 0, 'amount' => 0, 'outstanding' => 0],
+                'loan_requests' => ['count' => 0, 'amount' => 0],
+                'released_principal' => ['total' => 0, 'this_month' => 0],
+                'outstanding_principal' => ['total' => 0],
+                'interest_collected' => ['total' => 0, 'this_month' => 0],
+                'repayments_collected' => ['total' => 0, 'this_month' => 0],
+                'active_borrowers' => ['count' => 0, 'percentage' => 0],
+                'portfolio_at_risk' => [
+                    '14_day_par' => ['percentage' => 0],
+                    '30_day_par' => ['percentage' => 0],
+                    'total_par' => ['percentage' => 0]
+                ]
+            ];
+        }
+    @endphp
+
+    <!-- Real-time Financial Metrics Sidebar -->
+    <div class="sidebar-financial-metrics">
+        <div class="metrics-header">
+            <h6><i class="fas fa-chart-line me-2"></i>Live Financial Metrics</h6>
+            <small class="text-muted" id="last-update">Updated: {{ now()->format('H:i:s') }}</small>
+        </div>
+        
+        <!-- Key Performance Indicators -->
+        <div class="metrics-section">
+            <h6 class="metrics-title">Portfolio Overview</h6>
+            <div class="metric-item">
+                <div class="metric-icon bg-warning">
                     <i class="fas fa-clock"></i>
                 </div>
-                <div class="quick-stat-info">
-                    <div class="quick-stat-value">{{ \App\Models\Loan::where('next_payment_date', today())->count() }}</div>
-                    <div class="quick-stat-label">Due Today</div>
+                <div class="metric-content">
+                    <div class="metric-value" id="loans-due-today">{{ $analytics['loans_due_today']['count'] }}</div>
+                    <div class="metric-label">Due Today</div>
+                    <div class="metric-amount">${{ number_format($analytics['loans_due_today']['amount'], 0) }}</div>
                 </div>
             </div>
-            <div class="quick-stat-item">
-                <div class="quick-stat-icon bg-danger">
+            
+            <div class="metric-item">
+                <div class="metric-icon bg-danger">
                     <i class="fas fa-exclamation-triangle"></i>
                 </div>
-                <div class="quick-stat-info">
-                    <div class="quick-stat-value">{{ \App\Models\Loan::where('status', 'overdue')->count() }}</div>
-                    <div class="quick-stat-label">Overdue</div>
+                <div class="metric-content">
+                    <div class="metric-value" id="overdue-loans">{{ $analytics['overdue_loans']['count'] }}</div>
+                    <div class="metric-label">Overdue</div>
+                    <div class="metric-amount">${{ number_format($analytics['overdue_loans']['amount'], 0) }}</div>
                 </div>
             </div>
-            <div class="quick-stat-item">
-                <div class="quick-stat-icon bg-success">
+            
+            <div class="metric-item">
+                <div class="metric-icon bg-success">
                     <i class="fas fa-check-circle"></i>
                 </div>
-                <div class="quick-stat-info">
-                    <div class="quick-stat-value">{{ \App\Models\Loan::where('status', 'active')->count() }}</div>
-                    <div class="quick-stat-label">Active</div>
+                <div class="metric-content">
+                    <div class="metric-value" id="active-loans">{{ $analytics['active_loans']['count'] }}</div>
+                    <div class="metric-label">Active Loans</div>
+                    <div class="metric-amount">${{ number_format($analytics['active_loans']['outstanding'], 0) }}</div>
                 </div>
             </div>
-            <div class="quick-stat-item">
-                <div class="quick-stat-icon bg-info">
+            
+            <div class="metric-item">
+                <div class="metric-icon bg-info">
                     <i class="fas fa-file-alt"></i>
                 </div>
-                <div class="quick-stat-info">
-                    <div class="quick-stat-value">{{ \App\Models\Loan::where('status', 'pending')->count() }}</div>
-                    <div class="quick-stat-label">Requests</div>
+                <div class="metric-content">
+                    <div class="metric-value" id="loan-requests">{{ $analytics['loan_requests']['count'] }}</div>
+                    <div class="metric-label">Requests</div>
+                    <div class="metric-amount">${{ number_format($analytics['loan_requests']['amount'], 0) }}</div>
                 </div>
             </div>
         </div>
-    @endif
+
+        <!-- Financial Performance -->
+        <div class="metrics-section">
+            <h6 class="metrics-title">Financial Performance</h6>
+            <div class="metric-item">
+                <div class="metric-icon bg-primary">
+                    <i class="fas fa-money-bill-wave"></i>
+                </div>
+                <div class="metric-content">
+                    <div class="metric-value" id="released-principal">${{ number_format($analytics['released_principal']['total'] / 1000, 0) }}K</div>
+                    <div class="metric-label">Released Principal</div>
+                    <div class="metric-sub">This Month: ${{ number_format($analytics['released_principal']['this_month'] / 1000, 0) }}K</div>
+                </div>
+            </div>
+            
+            <div class="metric-item">
+                <div class="metric-icon bg-warning">
+                    <i class="fas fa-chart-line"></i>
+                </div>
+                <div class="metric-content">
+                    <div class="metric-value" id="outstanding-principal">${{ number_format($analytics['outstanding_principal']['total'] / 1000, 0) }}K</div>
+                    <div class="metric-label">Outstanding</div>
+                    <div class="metric-sub">Active Portfolio</div>
+                </div>
+            </div>
+            
+            <div class="metric-item">
+                <div class="metric-icon bg-success">
+                    <i class="fas fa-percentage"></i>
+                </div>
+                <div class="metric-content">
+                    <div class="metric-value" id="interest-collected">${{ number_format($analytics['interest_collected']['total'] / 1000, 0) }}K</div>
+                    <div class="metric-label">Interest Collected</div>
+                    <div class="metric-sub">This Month: ${{ number_format($analytics['interest_collected']['this_month'] / 1000, 0) }}K</div>
+                </div>
+            </div>
+            
+            <div class="metric-item">
+                <div class="metric-icon bg-info">
+                    <i class="fas fa-dollar-sign"></i>
+                </div>
+                <div class="metric-content">
+                    <div class="metric-value" id="repayments-collected">${{ number_format($analytics['repayments_collected']['total'] / 1000, 0) }}K</div>
+                    <div class="metric-label">Repayments</div>
+                    <div class="metric-sub">This Month: ${{ number_format($analytics['repayments_collected']['this_month'] / 1000, 0) }}K</div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Portfolio at Risk -->
+        <div class="metrics-section">
+            <h6 class="metrics-title">Portfolio at Risk</h6>
+            <div class="metric-item">
+                <div class="metric-icon bg-warning">
+                    <i class="fas fa-exclamation-triangle"></i>
+                </div>
+                <div class="metric-content">
+                    <div class="metric-value" id="par-14">{{ number_format($analytics['portfolio_at_risk']['14_day_par']['percentage'], 1) }}%</div>
+                    <div class="metric-label">14-Day PAR</div>
+                    <div class="metric-sub">Early Risk</div>
+                </div>
+            </div>
+            
+            <div class="metric-item">
+                <div class="metric-icon bg-danger">
+                    <i class="fas fa-exclamation-circle"></i>
+                </div>
+                <div class="metric-content">
+                    <div class="metric-value" id="par-30">{{ number_format($analytics['portfolio_at_risk']['30_day_par']['percentage'], 1) }}%</div>
+                    <div class="metric-label">30-Day PAR</div>
+                    <div class="metric-sub">Medium Risk</div>
+                </div>
+            </div>
+            
+            <div class="metric-item">
+                <div class="metric-icon bg-danger">
+                    <i class="fas fa-times-circle"></i>
+                </div>
+                <div class="metric-content">
+                    <div class="metric-value" id="par-total">{{ number_format($analytics['portfolio_at_risk']['total_par']['percentage'], 1) }}%</div>
+                    <div class="metric-label">Total PAR</div>
+                    <div class="metric-sub">Overall Risk</div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Active Borrowers -->
+        <div class="metrics-section">
+            <h6 class="metrics-title">Client Base</h6>
+            <div class="metric-item">
+                <div class="metric-icon bg-primary">
+                    <i class="fas fa-users"></i>
+                </div>
+                <div class="metric-content">
+                    <div class="metric-value" id="active-borrowers">{{ $analytics['active_borrowers']['count'] }}</div>
+                    <div class="metric-label">Active Borrowers</div>
+                    <div class="metric-sub">{{ number_format($analytics['active_borrowers']['percentage'], 1) }}% of total</div>
+                </div>
+            </div>
+        </div>
+    </div>
     
     <nav class="sidebar-nav">
         <ul class="nav-list">
@@ -69,9 +210,36 @@
             <li class="nav-item">
                 <a href="{{ route('dashboard') }}" class="nav-link {{ request()->routeIs('dashboard') ? 'active' : '' }}">
                     <i class="fas fa-tachometer-alt"></i>
-                    <span class="nav-text">Dashboard</span>
+                    <span class="nav-text">Main Dashboard</span>
                 </a>
             </li>
+            
+            @if($role === 'admin')
+            <li class="nav-item">
+                <a href="{{ route('admin.dashboard') }}" class="nav-link {{ request()->routeIs('admin.dashboard') ? 'active' : '' }}">
+                    <i class="fas fa-crown"></i>
+                    <span class="nav-text">Admin Dashboard</span>
+                </a>
+            </li>
+            @endif
+            
+            @if($role === 'branch_manager')
+            <li class="nav-item">
+                <a href="{{ route('branch-manager.dashboard') }}" class="nav-link {{ request()->routeIs('branch-manager.dashboard') ? 'active' : '' }}">
+                    <i class="fas fa-building"></i>
+                    <span class="nav-text">Branch Dashboard</span>
+                </a>
+            </li>
+            @endif
+            
+            @if($role === 'loan_officer')
+            <li class="nav-item">
+                <a href="{{ route('loan-officer.dashboard') }}" class="nav-link {{ request()->routeIs('loan-officer.dashboard') ? 'active' : '' }}">
+                    <i class="fas fa-user-tie"></i>
+                    <span class="nav-text">My Dashboard</span>
+                </a>
+            </li>
+            @endif
             
                 @if($role === 'admin')
                     <!-- Admin Menu - Complete System Access -->
@@ -259,46 +427,74 @@
                     </a>
                 </li>
                 
-                <!-- Financial Management -->
+                <!-- Microbook-G5 Accounting Module -->
                 <li class="nav-section">
-                    <span class="nav-section-title">Financial Management</span>
+                    <span class="nav-section-title">Microbook-G5 Accounting</span>
                 </li>
+                @can('view_financial_reports')
                 <li class="nav-item">
-                    <a href="{{ route('chart-of-accounts.index') }}" class="nav-link {{ request()->routeIs('chart-of-accounts.*') ? 'active' : '' }}">
-                        <i class="fas fa-chart-line"></i>
+                    <a href="{{ route('accounting.dashboard') }}" class="nav-link {{ request()->routeIs('accounting.dashboard') ? 'active' : '' }}">
+                        <i class="fas fa-tachometer-alt"></i>
+                        <span class="nav-text">Accounting Dashboard</span>
+                    </a>
+                </li>
+                @endcan
+                @can('manage_chart_of_accounts')
+                <li class="nav-item">
+                    <a href="{{ route('accounting.chart-of-accounts') }}" class="nav-link {{ request()->routeIs('accounting.chart-of-accounts*') ? 'active' : '' }}">
+                        <i class="fas fa-list"></i>
                         <span class="nav-text">Chart of Accounts</span>
                     </a>
                 </li>
+                @endcan
+                @can('view_general_ledger')
                 <li class="nav-item">
-                    <a href="{{ route('general-ledger.index') }}" class="nav-link {{ request()->routeIs('general-ledger.*') ? 'active' : '' }}">
+                    <a href="{{ route('accounting.general-ledger') }}" class="nav-link {{ request()->routeIs('accounting.general-ledger*') ? 'active' : '' }}">
                         <i class="fas fa-book"></i>
                         <span class="nav-text">General Ledger</span>
                     </a>
                 </li>
+                @endcan
+                @can('manage_journal_entries')
                 <li class="nav-item">
-                    <a href="{{ route('general-ledger.trial-balance') }}" class="nav-link {{ request()->routeIs('general-ledger.trial-balance') ? 'active' : '' }}">
-                        <i class="fas fa-balance-scale"></i>
-                        <span class="nav-text">Trial Balance</span>
-                    </a>
-                </li>
-                <li class="nav-item">
-                    <a href="{{ route('general-ledger.profit-loss') }}" class="nav-link {{ request()->routeIs('general-ledger.profit-loss') ? 'active' : '' }}">
-                        <i class="fas fa-chart-pie"></i>
-                        <span class="nav-text">Profit & Loss</span>
-                    </a>
-                </li>
-                <li class="nav-item">
-                    <a href="{{ route('general-ledger.balance-sheet') }}" class="nav-link {{ request()->routeIs('general-ledger.balance-sheet') ? 'active' : '' }}">
+                    <a href="{{ route('accounting.journal-entries') }}" class="nav-link {{ request()->routeIs('accounting.journal-entries*') ? 'active' : '' }}">
                         <i class="fas fa-file-invoice"></i>
-                        <span class="nav-text">Balance Sheet</span>
+                        <span class="nav-text">Journal Entries</span>
                     </a>
                 </li>
+                @endcan
+                @can('manage_expense_entries')
                 <li class="nav-item">
-                    <a href="{{ route('financial-reports.index') }}" class="nav-link {{ request()->routeIs('financial-reports.*') ? 'active' : '' }}">
-                        <i class="fas fa-file-invoice-dollar"></i>
+                    <a href="{{ route('accounting.expense-entries') }}" class="nav-link {{ request()->routeIs('accounting.expense-entries*') ? 'active' : '' }}">
+                        <i class="fas fa-receipt"></i>
+                        <span class="nav-text">Expense Entries</span>
+                    </a>
+                </li>
+                @endcan
+                @can('manage_reconciliations')
+                <li class="nav-item">
+                    <a href="{{ route('accounting.reconciliations') }}" class="nav-link {{ request()->routeIs('accounting.reconciliations*') ? 'active' : '' }}">
+                        <i class="fas fa-balance-scale"></i>
+                        <span class="nav-text">Reconciliations</span>
+                    </a>
+                </li>
+                @endcan
+                @can('view_financial_reports')
+                <li class="nav-item">
+                    <a href="{{ route('accounting.reports') }}" class="nav-link {{ request()->routeIs('accounting.reports*') ? 'active' : '' }}">
+                        <i class="fas fa-chart-bar"></i>
                         <span class="nav-text">Financial Reports</span>
                     </a>
                 </li>
+                @endcan
+                @can('view_audit_trail')
+                <li class="nav-item">
+                    <a href="{{ route('accounting.audit-trail') }}" class="nav-link {{ request()->routeIs('accounting.audit-trail*') ? 'active' : '' }}">
+                        <i class="fas fa-history"></i>
+                        <span class="nav-text">Audit Trail</span>
+                    </a>
+                </li>
+                @endcan
                 
                 <!-- Reports & Analytics -->
                 <li class="nav-section">
@@ -519,11 +715,10 @@
                         <span class="nav-text">My Dashboard</span>
                     </a>
                 </li>
-                <li class="nav-item">
-                    <a href="{{ route('borrower.profile') }}" class="nav-link {{ request()->routeIs('borrower.profile') ? 'active' : '' }}">
-                        <i class="fas fa-user-circle"></i>
-                        <span class="nav-text">My Profile</span>
-                    </a>
+                
+                <!-- Loans & Payments Section -->
+                <li class="nav-section">
+                    <span class="nav-section-title">Loans & Payments</span>
                 </li>
                 <li class="nav-item">
                     <a href="{{ route('borrower.loans.index') }}" class="nav-link {{ request()->routeIs('borrower.loans.*') ? 'active' : '' }}">
@@ -532,21 +727,43 @@
                     </a>
                 </li>
                 <li class="nav-item">
-                    <a href="{{ route('borrower.savings.index') }}" class="nav-link {{ request()->routeIs('borrower.savings.*') ? 'active' : '' }}">
-                        <i class="fas fa-piggy-bank"></i>
-                        <span class="nav-text">My Savings</span>
-                    </a>
-                </li>
-                <li class="nav-item">
-                    <a href="{{ route('borrower.transactions.index') }}" class="nav-link {{ request()->routeIs('borrower.transactions.*') ? 'active' : '' }}">
-                        <i class="fas fa-exchange-alt"></i>
-                        <span class="nav-text">My Transactions</span>
+                    <a href="{{ route('borrower.loans.create') }}" class="nav-link {{ request()->routeIs('borrower.loans.create') ? 'active' : '' }}">
+                        <i class="fas fa-plus-circle"></i>
+                        <span class="nav-text">Apply for Loan</span>
                     </a>
                 </li>
                 <li class="nav-item">
                     <a href="{{ route('borrower.payments.create') }}" class="nav-link {{ request()->routeIs('borrower.payments.*') ? 'active' : '' }}">
                         <i class="fas fa-credit-card"></i>
                         <span class="nav-text">Make Payment</span>
+                    </a>
+                </li>
+                
+                <!-- Savings Section -->
+                <li class="nav-section">
+                    <span class="nav-section-title">Savings</span>
+                </li>
+                <li class="nav-item">
+                    <a href="{{ route('borrower.savings.index') }}" class="nav-link {{ request()->routeIs('borrower.savings.*') ? 'active' : '' }}">
+                        <i class="fas fa-piggy-bank"></i>
+                        <span class="nav-text">My Savings</span>
+                    </a>
+                </li>
+                
+                <!-- Reports Section -->
+                <li class="nav-section">
+                    <span class="nav-section-title">My Reports</span>
+                </li>
+                <li class="nav-item">
+                    <a href="{{ route('borrower.reports.financial') }}" class="nav-link {{ request()->routeIs('borrower.reports.*') ? 'active' : '' }}">
+                        <i class="fas fa-chart-line"></i>
+                        <span class="nav-text">My Financial Report</span>
+                    </a>
+                </li>
+                <li class="nav-item">
+                    <a href="{{ route('borrower.transactions.index') }}" class="nav-link {{ request()->routeIs('borrower.transactions.*') ? 'active' : '' }}">
+                        <i class="fas fa-history"></i>
+                        <span class="nav-text">Transaction History</span>
                     </a>
                 </li>
             @endif

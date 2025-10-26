@@ -93,12 +93,18 @@ class ReportController extends Controller
     {
         $filters = $this->getFilters($request);
         
-        $trialBalance = $this->accountingService->getTrialBalance();
-        $profitLoss = $this->accountingService->getProfitAndLoss(
-            $filters['date_from'] ?? now()->startOfMonth(),
-            $filters['date_to'] ?? now()->endOfMonth()
-        );
-        $balanceSheet = $this->accountingService->getBalanceSheet();
+        // Convert Carbon instances to date strings
+        $fromDate = isset($filters['date_from']) 
+            ? (is_string($filters['date_from']) ? $filters['date_from'] : $filters['date_from']->toDateString())
+            : now()->startOfMonth()->toDateString();
+            
+        $toDate = isset($filters['date_to'])
+            ? (is_string($filters['date_to']) ? $filters['date_to'] : $filters['date_to']->toDateString())
+            : now()->endOfMonth()->toDateString();
+        
+        $trialBalance = $this->accountingService->getTrialBalance($toDate);
+        $profitLoss = $this->accountingService->getProfitAndLoss($fromDate, $toDate);
+        $balanceSheet = $this->accountingService->getBalanceSheet($toDate);
         
         return view('reports.financial', compact('trialBalance', 'profitLoss', 'balanceSheet', 'filters'));
     }

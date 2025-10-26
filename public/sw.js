@@ -28,7 +28,12 @@ self.addEventListener('install', (event) => {
         caches.open(CACHE_NAME)
             .then((cache) => {
                 console.log('Caching static assets...');
-                return cache.addAll(STATIC_CACHE_URLS);
+                // Cache each URL individually to avoid failures on missing files
+                return Promise.allSettled(
+                    STATIC_CACHE_URLS.map(url => 
+                        cache.add(url).catch(err => console.log('Failed to cache:', url))
+                    )
+                );
             })
             .then(() => {
                 console.log('Static assets cached successfully');
@@ -73,6 +78,16 @@ self.addEventListener('fetch', (event) => {
         return;
     }
     
+    // Skip chrome-extension and other non-http schemes
+    if (!url.protocol.startsWith('http')) {
+        return;
+    }
+    
+    // Skip cross-origin requests
+    if (url.origin !== location.origin) {
+        return;
+    }
+    
     // Handle API requests
     if (url.pathname.startsWith('/api/')) {
         event.respondWith(
@@ -83,8 +98,11 @@ self.addEventListener('fetch', (event) => {
                         const responseClone = response.clone();
                         caches.open(CACHE_NAME)
                             .then((cache) => {
-                                cache.put(request, responseClone);
-                            });
+                                cache.put(request, responseClone).catch(err => {
+                                    console.log('Failed to cache API:', request.url, err);
+                                });
+                            })
+                            .catch(err => console.log('Cache open failed:', err));
                     }
                     return response;
                 })
@@ -122,8 +140,11 @@ self.addEventListener('fetch', (event) => {
                     const responseClone = response.clone();
                     caches.open(CACHE_NAME)
                         .then((cache) => {
-                            cache.put(request, responseClone);
-                        });
+                            cache.put(request, responseClone).catch(err => {
+                                console.log('Failed to cache:', request.url, err);
+                            });
+                        })
+                        .catch(err => console.log('Cache open failed:', err));
                 }
                 return response;
             })

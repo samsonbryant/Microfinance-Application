@@ -3,97 +3,96 @@
 @section('title', 'Add Staff Member')
 
 @section('content')
-<div class="page-header">
-    <h1 class="page-title">Add Staff Member</h1>
-    <p class="page-subtitle">Create a new staff member record.</p>
-</div>
+<div class="container-fluid">
+    <div class="d-flex justify-content-between align-items-center mb-4">
+        <div>
+            <h1 class="h3 mb-0 text-gray-800">
+                <i class="fas fa-user-plus text-primary me-2"></i>Add New Staff Member
+            </h1>
+            <p class="text-muted mb-0">Create a new staff account</p>
+        </div>
+        <a href="{{ route('staff.index') }}" class="btn btn-secondary">
+            <i class="fas fa-arrow-left me-1"></i>Back
+        </a>
+    </div>
 
-<div class="row">
-    <div class="col-12">
-        <div class="card shadow mb-4">
-            <div class="card-header py-3">
-                <h6 class="m-0 font-weight-bold text-primary">Staff Information</h6>
+    <form action="{{ route('staff.store') }}" method="POST">
+        @csrf
+
+        <div class="card shadow">
+            <div class="card-header bg-primary text-white">
+                <h6 class="m-0 font-weight-bold">Staff Information</h6>
             </div>
             <div class="card-body">
-                <form>
-                    <div class="row">
-                        <div class="col-md-6">
-                            <div class="form-group">
-                                <label for="name">Full Name</label>
-                                <input type="text" class="form-control" id="name" name="name" required>
-                            </div>
-                        </div>
-                        <div class="col-md-6">
-                            <div class="form-group">
-                                <label for="position">Position</label>
-                                <input type="text" class="form-control" id="position" name="position" required>
-                            </div>
-                        </div>
+                <div class="row">
+                    <div class="col-md-6 mb-3">
+                        <label for="name" class="form-label">Full Name <span class="text-danger">*</span></label>
+                        <input type="text" class="form-control @error('name') is-invalid @enderror" 
+                               id="name" name="name" value="{{ old('name') }}" required>
+                        @error('name')<div class="invalid-feedback">{{ $message }}</div>@enderror
                     </div>
-                    
-                    <div class="row">
-                        <div class="col-md-6">
-                            <div class="form-group">
-                                <label for="email">Email</label>
-                                <input type="email" class="form-control" id="email" name="email" required>
-                            </div>
-                        </div>
-                        <div class="col-md-6">
-                            <div class="form-group">
-                                <label for="phone">Phone</label>
-                                <input type="tel" class="form-control" id="phone" name="phone">
-                            </div>
-                        </div>
+
+                    <div class="col-md-6 mb-3">
+                        <label for="email" class="form-label">Email <span class="text-danger">*</span></label>
+                        <input type="email" class="form-control @error('email') is-invalid @enderror" 
+                               id="email" name="email" value="{{ old('email') }}" required>
+                        @error('email')<div class="invalid-feedback">{{ $message }}</div>@enderror
                     </div>
-                    
-                    <div class="row">
-                        <div class="col-md-6">
-                            <div class="form-group">
-                                <label for="branch_id">Branch</label>
-                                <select class="form-control" id="branch_id" name="branch_id" required>
-                                    <option value="">Select Branch</option>
-                                    <!-- Branches will be populated here -->
-                                </select>
-                            </div>
-                        </div>
-                        <div class="col-md-6">
-                            <div class="form-group">
-                                <label for="salary">Salary</label>
-                                <input type="number" class="form-control" id="salary" name="salary" step="0.01">
-                            </div>
-                        </div>
+
+                    <div class="col-md-6 mb-3">
+                        <label for="password" class="form-label">Password <span class="text-danger">*</span></label>
+                        <input type="password" class="form-control @error('password') is-invalid @enderror" 
+                               id="password" name="password" required>
+                        @error('password')<div class="invalid-feedback">{{ $message }}</div>@enderror
                     </div>
-                    
-                    <div class="row">
-                        <div class="col-md-6">
-                            <div class="form-group">
-                                <label for="hire_date">Hire Date</label>
-                                <input type="date" class="form-control" id="hire_date" name="hire_date" required>
-                            </div>
-                        </div>
-                        <div class="col-md-6">
-                            <div class="form-group">
-                                <label for="employment_status">Employment Status</label>
-                                <select class="form-control" id="employment_status" name="employment_status" required>
-                                    <option value="active">Active</option>
-                                    <option value="inactive">Inactive</option>
-                                    <option value="terminated">Terminated</option>
-                                </select>
-                            </div>
-                        </div>
+
+                    <div class="col-md-6 mb-3">
+                        <label for="password_confirmation" class="form-label">Confirm Password <span class="text-danger">*</span></label>
+                        <input type="password" class="form-control" id="password_confirmation" name="password_confirmation" required>
                     </div>
-                    
-                    <div class="form-group">
-                        <button type="submit" class="btn btn-primary">
-                            <i class="fas fa-save"></i> Save Staff Member
-                        </button>
-                        <a href="{{ route('staff.index') }}" class="btn btn-secondary">
-                            <i class="fas fa-arrow-left"></i> Cancel
-                        </a>
+
+                    <div class="col-md-6 mb-3">
+                        <label for="role" class="form-label">Role <span class="text-danger">*</span></label>
+                        <select class="form-select @error('role') is-invalid @enderror" id="role" name="role" required>
+                            <option value="">Select Role</option>
+                            <option value="admin">Admin</option>
+                            <option value="general_manager">General Manager</option>
+                            <option value="branch_manager">Branch Manager</option>
+                            <option value="loan_officer">Loan Officer</option>
+                            <option value="accountant">Accountant</option>
+                            <option value="hr">HR Manager</option>
+                        </select>
+                        @error('role')<div class="invalid-feedback">{{ $message }}</div>@enderror
                     </div>
-                </form>
+
+                    <div class="col-md-6 mb-3">
+                        <label for="branch_id" class="form-label">Branch</label>
+                        <select class="form-select" id="branch_id" name="branch_id">
+                            <option value="">Head Office</option>
+                            @foreach(\App\Models\Branch::all() as $branch)
+                                <option value="{{ $branch->id }}">{{ $branch->name }}</option>
+                            @endforeach
+                        </select>
+                    </div>
+
+                    <div class="col-md-12 mb-3">
+                        <label for="phone" class="form-label">Phone</label>
+                        <input type="text" class="form-control" id="phone" name="phone" value="{{ old('phone') }}">
+                    </div>
+                </div>
+            </div>
+
+            <div class="card-footer">
+                <div class="d-flex justify-content-between">
+                    <a href="{{ route('staff.index') }}" class="btn btn-secondary">
+                        <i class="fas fa-times me-1"></i>Cancel
+                    </a>
+                    <button type="submit" class="btn btn-primary">
+                        <i class="fas fa-save me-1"></i>Create Staff Member
+                    </button>
+                </div>
             </div>
         </div>
-    </div>
+    </form>
 </div>
 @endsection

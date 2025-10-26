@@ -109,4 +109,91 @@ class SearchController extends Controller
             'query' => $query
         ]);
     }
+
+    /**
+     * Search clients only
+     */
+    public function searchClients(Request $request)
+    {
+        $query = $request->get('q');
+        $user = auth()->user();
+        $branchId = $user->branch_id;
+
+        if (empty($query)) {
+            return response()->json(['results' => []]);
+        }
+
+        $clients = Client::when($branchId && !$user->hasRole('admin'), function($q) use ($branchId) {
+                $q->where('branch_id', $branchId);
+            })
+            ->where(function($q) use ($query) {
+                $q->where('first_name', 'like', "%{$query}%")
+                  ->orWhere('last_name', 'like', "%{$query}%")
+                  ->orWhere('client_number', 'like', "%{$query}%")
+                  ->orWhere('email', 'like', "%{$query}%")
+                  ->orWhere('phone', 'like', "%{$query}%");
+            })
+            ->limit(10)
+            ->get()
+            ->map(function($client) {
+                return [
+                    'id' => $client->id,
+                    'name' => $client->full_name,
+                    'client_number' => $client->client_number,
+                    'email' => $client->email,
+                    'phone' => $client->phone,
+                    'url' => route('clients.show', $client)
+                ];
+            });
+
+        return response()->json([
+            'results' => $clients,
+            'query' => $query
+        ]);
+    }
+
+    /**
+     * Search loans only
+     */
+    public function searchLoans(Request $request)
+    {
+        $query = $request->get('q');
+        $user = auth()->user();
+        $branchId = $user->branch_id;
+
+        if (empty($query)) {
+            return response()->json(['results' => []]);
+        }
+
+        $loans = Loan::when($branchId && !$user->hasRole('admin'), function($q) use ($branchId) {
+                $q->where('branch_id', $branchId);
+            })
+            ->where(function($q) use ($query) {
+                $q->where('loan_number', 'like', "%{$query}%")
+                  ->orWhereHas('client', function($q) use ($query) {
+                      $q->where('first_name', 'like', "%{$query}%")
+                        ->orWhere('last_name', 'like', "%{$query}%")
+                        ->orWhere('client_number', 'like', "%{$query}%");
+                  });
+            })
+            ->with('client')
+            ->limit(10)
+            ->get()
+            ->map(function($loan) {
+                return [
+                    'id' => $loan->id,
+                    'loan_number' => $loan->loan_number,
+                    'client_name' => $loan->client->full_name ?? 'Unknown Client',
+                    'amount' => $loan->amount,
+                    'outstanding_balance' => $loan->outstanding_balance,
+                    'status' => $loan->status,
+                    'url' => route('loans.show', $loan)
+                ];
+            });
+
+        return response()->json([
+            'results' => $loans,
+            'query' => $query
+        ]);
+    }
 }

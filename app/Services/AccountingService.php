@@ -319,4 +319,295 @@ class AccountingService
 
         return abs($totalDebits - $totalCredits) < 0.01; // Allow for minor rounding differences
     }
+    /**
+     * Get Profit & Loss Statement
+     */
+    public function getProfitAndLoss($fromDate = null, $toDate = null)
+    {
+        $fromDate = $fromDate ?? now()->startOfMonth()->toDateString();
+        $toDate = $toDate ?? now()->toDateString();
+
+        // Get revenue accounts
+        $revenueAccounts = ChartOfAccount::where('type', 'revenue')
+            ->where('is_active', true)
+            ->get();
+
+        $revenues = [];
+        $totalRevenue = 0;
+
+        foreach ($revenueAccounts as $account) {
+            $balance = $this->getAccountBalanceForPeriod($account->id, $fromDate, $toDate);
+            if ($balance != 0) {
+                $revenues[] = [
+                    'account' => $account,
+                    'balance' => $balance,
+                ];
+                $totalRevenue += $balance;
+            }
+        }
+
+        // Get expense accounts
+        $expenseAccounts = ChartOfAccount::where('type', 'expense')
+            ->where('is_active', true)
+            ->get();
+
+        $expenses = [];
+        $totalExpenses = 0;
+
+        foreach ($expenseAccounts as $account) {
+            $balance = $this->getAccountBalanceForPeriod($account->id, $fromDate, $toDate);
+            if ($balance != 0) {
+                $expenses[] = [
+                    'account' => $account,
+                    'balance' => $balance,
+                ];
+                $totalExpenses += $balance;
+            }
+        }
+
+        $netIncome = $totalRevenue - $totalExpenses;
+
+        return [
+            'from_date' => $fromDate,
+            'to_date' => $toDate,
+            'revenues' => $revenues,
+            'total_revenue' => $totalRevenue,
+            'expenses' => $expenses,
+            'total_expenses' => $totalExpenses,
+            'net_income' => $netIncome,
+        ];
+    }
+
+    /**
+     * Get Balance Sheet
+     */
+    public function getBalanceSheet($asOfDate = null)
+    {
+        $asOfDate = $asOfDate ?? now()->toDateString();
+
+        // Assets
+        $assetAccounts = ChartOfAccount::where('type', 'asset')
+            ->where('is_active', true)
+            ->get();
+
+        $assets = [];
+        $totalAssets = 0;
+
+        foreach ($assetAccounts as $account) {
+            $balance = $this->getAccountBalance($account->id, $asOfDate);
+            if ($balance != 0) {
+                $assets[] = [
+                    'account' => $account,
+                    'balance' => $balance,
+                ];
+                $totalAssets += $balance;
+            }
+        }
+
+        // Liabilities
+        $liabilityAccounts = ChartOfAccount::where('type', 'liability')
+            ->where('is_active', true)
+            ->get();
+
+        $liabilities = [];
+        $totalLiabilities = 0;
+
+        foreach ($liabilityAccounts as $account) {
+            $balance = $this->getAccountBalance($account->id, $asOfDate);
+            if ($balance != 0) {
+                $liabilities[] = [
+                    'account' => $account,
+                    'balance' => $balance,
+                ];
+                $totalLiabilities += $balance;
+            }
+        }
+
+        // Equity
+        $equityAccounts = ChartOfAccount::whereIn('type', ['equity', 'owners_equity'])
+            ->where('is_active', true)
+            ->get();
+
+        $equity = [];
+        $totalEquity = 0;
+
+        foreach ($equityAccounts as $account) {
+            $balance = $this->getAccountBalance($account->id, $asOfDate);
+            if ($balance != 0) {
+                $equity[] = [
+                    'account' => $account,
+                    'balance' => $balance,
+                ];
+                $totalEquity += $balance;
+            }
+        }
+
+        // Add net income to equity
+        $netIncome = $this->getProfitAndLoss(now()->startOfYear()->toDateString(), $asOfDate)['net_income'];
+        $totalEquity += $netIncome;
+
+        return [
+            'as_of_date' => $asOfDate,
+            'assets' => $assets,
+            'total_assets' => $totalAssets,
+            'liabilities' => $liabilities,
+            'total_liabilities' => $totalLiabilities,
+            'equity' => $equity,
+            'net_income' => $netIncome,
+            'total_equity' => $totalEquity,
+            'total_liabilities_and_equity' => $totalLiabilities + $totalEquity,
+        ];
+    }
+
+    /**
+     * Get Cash Flow Statement
+     */
+    public function getCashFlowStatement($fromDate = null, $toDate = null)
+    {
+        $fromDate = $fromDate ?? now()->startOfMonth()->toDateString();
+        $toDate = $toDate ?? now()->toDateString();
+
+        // Operating Activities
+        $netIncome = $this->getProfitAndLoss($fromDate, $toDate)['net_income'];
+        
+        // Get cash accounts
+        $cashAccounts = ChartOfAccount::whereIn('category', ['cash_on_hand', 'cash_in_bank'])
+            ->where('is_active', true)
+            ->get();
+
+        $operatingActivities = [
+            'net_income' => $netIncome,
+            'adjustments' => [],
+            'total' => $netIncome,
+        ];
+
+        // Investing Activities (changes in fixed assets)
+        $investingActivities = [];
+        $investingTotal = 0;
+
+        // Financing Activities (changes in loans, equity)
+        $financingActivities = [];
+        $financingTotal = 0;
+
+        $netCashFlow = $operatingActivities['total'] + $investingTotal + $financingTotal;
+
+        return [
+            'from_date' => $fromDate,
+            'to_date' => $toDate,
+            'operating_activities' => $operatingActivities,
+            'investing_activities' => $investingActivities,
+            'financing_activities' => $financingActivities,
+            'investing_total' => $investingTotal,
+            'financing_total' => $financingTotal,
+            'net_cash_flow' => $netCashFlow,
+        ];
+    }
+
+    /**
+     * Get account balance for a specific period
+     */
+    private function getAccountBalanceForPeriod($accountId, $fromDate, $toDate)
+    {
+        $account = ChartOfAccount::find($accountId);
+        if (!$account) {
+            return 0;
+        }
+
+        $debits = GeneralLedgerEntry::where('account_id', $accountId)
+            ->whereBetween('transaction_date', [$fromDate, $toDate])
+            ->where('status', 'approved')
+            ->sum('debit');
+
+        $credits = GeneralLedgerEntry::where('account_id', $accountId)
+            ->whereBetween('transaction_date', [$fromDate, $toDate])
+            ->where('status', 'approved')
+            ->sum('credit');
+
+        if ($account->normal_balance === 'credit') {
+            return $credits - $debits;
+        } else {
+            return $debits - $credits;
+        }
+    }
+
+    /**
+     * Get revenue breakdown by type
+     */
+    public function getRevenueBreakdown($fromDate = null, $toDate = null)
+    {
+        $fromDate = $fromDate ?? now()->startOfMonth()->toDateString();
+        $toDate = $toDate ?? now()->toDateString();
+
+        $breakdown = [
+            'interest_received' => 0,
+            'default_charges' => 0,
+            'processing_fee' => 0,
+            'system_charge' => 0,
+            'other' => 0,
+        ];
+
+        $revenueEntries = \App\Models\RevenueEntry::whereBetween('transaction_date', [$fromDate, $toDate])
+            ->where('status', 'posted')
+            ->get();
+
+        foreach ($revenueEntries as $entry) {
+            $breakdown[$entry->revenue_type] += $entry->amount;
+        }
+
+        return $breakdown;
+    }
+
+    /**
+     * Get monthly trends for charts
+     */
+    public function getMonthlyTrends($months = 12)
+    {
+        $trends = [];
+        $startDate = now()->subMonths($months)->startOfMonth();
+
+        for ($i = 0; $i < $months; $i++) {
+            $monthStart = $startDate->copy()->addMonths($i)->startOfMonth();
+            $monthEnd = $monthStart->copy()->endOfMonth();
+
+            $pl = $this->getProfitAndLoss($monthStart->toDateString(), $monthEnd->toDateString());
+
+            $trends[] = [
+                'month' => $monthStart->format('M Y'),
+                'revenue' => $pl['total_revenue'],
+                'expenses' => $pl['total_expenses'],
+                'net_income' => $pl['net_income'],
+            ];
+        }
+
+        return $trends;
+    }
+
+    /**
+     * Get cash position
+     */
+    public function getCashPosition($asOfDate = null)
+    {
+        $asOfDate = $asOfDate ?? now()->toDateString();
+
+        $cashAccounts = ChartOfAccount::whereIn('category', ['cash_on_hand', 'cash_in_bank'])
+            ->where('is_active', true)
+            ->get();
+
+        $cashBalance = 0;
+        $accounts = [];
+
+        foreach ($cashAccounts as $account) {
+            $balance = $this->getAccountBalance($account->id, $asOfDate);
+            $cashBalance += $balance;
+            $accounts[] = [
+                'account' => $account,
+                'balance' => $balance,
+            ];
+        }
+
+        return [
+            'total_cash' => $cashBalance,
+            'accounts' => $accounts,
+        ];
+    }
 }

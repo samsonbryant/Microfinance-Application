@@ -1,0 +1,191 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Generate PWA Icons</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            max-width: 800px;
+            margin: 50px auto;
+            padding: 20px;
+            background: #f5f5f5;
+        }
+        .container {
+            background: white;
+            padding: 30px;
+            border-radius: 10px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+        }
+        h1 {
+            color: #333;
+            margin-bottom: 20px;
+        }
+        .icon-preview {
+            display: inline-block;
+            margin: 10px;
+            text-align: center;
+        }
+        canvas {
+            border: 1px solid #ddd;
+            border-radius: 5px;
+            margin-bottom: 5px;
+        }
+        button {
+            background: #4e73df;
+            color: white;
+            border: none;
+            padding: 10px 20px;
+            border-radius: 5px;
+            cursor: pointer;
+            margin: 5px;
+            font-size: 14px;
+        }
+        button:hover {
+            background: #2e59d9;
+        }
+        .success {
+            color: #1cc88a;
+            font-weight: bold;
+            margin-top: 10px;
+        }
+        .info {
+            background: #e7f3ff;
+            padding: 15px;
+            border-left: 4px solid #4e73df;
+            margin: 20px 0;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>🎨 PWA Icon Generator</h1>
+        
+        <div class="info">
+            <strong>Instructions:</strong> Click "Generate All Icons" to create all required PWA icons for your Microfinance Management System.
+        </div>
+        
+        <button onclick="generateAllIcons()">Generate All Icons</button>
+        <button onclick="downloadAllIcons()">Download All Icons as ZIP</button>
+        
+        <div id="preview"></div>
+        <div id="status"></div>
+    </div>
+
+    <script>
+        const sizes = [16, 32, 72, 96, 128, 144, 152, 167, 180, 192, 384, 512];
+        const generatedIcons = {};
+
+        function generateIcon(size) {
+            const canvas = document.createElement('canvas');
+            canvas.width = size;
+            canvas.height = size;
+            const ctx = canvas.getContext('2d');
+
+            // Background gradient
+            const gradient = ctx.createLinearGradient(0, 0, size, size);
+            gradient.addColorStop(0, '#667eea');
+            gradient.addColorStop(1, '#764ba2');
+            ctx.fillStyle = gradient;
+            ctx.fillRect(0, 0, size, size);
+
+            // Add white border
+            ctx.strokeStyle = 'rgba(255, 255, 255, 0.2)';
+            ctx.lineWidth = size * 0.02;
+            ctx.strokeRect(0, 0, size, size);
+
+            // Draw icon symbol (bank/money icon)
+            ctx.fillStyle = 'white';
+            ctx.font = `bold ${size * 0.5}px Arial`;
+            ctx.textAlign = 'center';
+            ctx.textBaseline = 'middle';
+            ctx.fillText('💰', size / 2, size / 2);
+
+            // Add text for larger icons
+            if (size >= 144) {
+                ctx.font = `bold ${size * 0.12}px Arial`;
+                ctx.fillStyle = 'rgba(255, 255, 255, 0.9)';
+                ctx.fillText('MMS', size / 2, size * 0.85);
+            }
+
+            return canvas;
+        }
+
+        function generateAllIcons() {
+            const preview = document.getElementById('preview');
+            preview.innerHTML = '<h3>Generated Icons:</h3>';
+
+            sizes.forEach(size => {
+                const canvas = generateIcon(size);
+                generatedIcons[size] = canvas;
+
+                const container = document.createElement('div');
+                container.className = 'icon-preview';
+                
+                const previewCanvas = canvas.cloneNode();
+                const previewCtx = previewCanvas.getContext('2d');
+                previewCtx.drawImage(canvas, 0, 0);
+                
+                container.appendChild(previewCanvas);
+                
+                const downloadBtn = document.createElement('button');
+                downloadBtn.textContent = `Download ${size}x${size}`;
+                downloadBtn.onclick = () => downloadIcon(canvas, size);
+                
+                container.appendChild(document.createElement('br'));
+                container.appendChild(downloadBtn);
+                
+                preview.appendChild(container);
+            });
+
+            document.getElementById('status').innerHTML = '<p class="success">✓ All icons generated successfully! Click individual download buttons to save them.</p>';
+        }
+
+        function downloadIcon(canvas, size) {
+            canvas.toBlob(blob => {
+                const url = URL.createObjectURL(blob);
+                const a = document.createElement('a');
+                a.href = url;
+                a.download = `icon-${size}x${size}.png`;
+                a.click();
+                URL.revokeObjectURL(url);
+            });
+        }
+
+        async function downloadAllIcons() {
+            if (Object.keys(generatedIcons).length === 0) {
+                alert('Please generate icons first!');
+                return;
+            }
+
+            document.getElementById('status').innerHTML = '<p>Preparing downloads...</p>';
+            
+            // Download each icon with a small delay
+            for (const size of sizes) {
+                if (generatedIcons[size]) {
+                    await new Promise(resolve => {
+                        generatedIcons[size].toBlob(blob => {
+                            const url = URL.createObjectURL(blob);
+                            const a = document.createElement('a');
+                            a.href = url;
+                            a.download = `icon-${size}x${size}.png`;
+                            a.click();
+                            URL.revokeObjectURL(url);
+                            setTimeout(resolve, 300); // Small delay between downloads
+                        });
+                    });
+                }
+            }
+
+            document.getElementById('status').innerHTML = '<p class="success">✓ All icons downloaded! Please save them to the /public/icons/ directory.</p>';
+        }
+
+        // Auto-generate on page load
+        window.onload = () => {
+            generateAllIcons();
+        };
+    </script>
+</body>
+</html>
+

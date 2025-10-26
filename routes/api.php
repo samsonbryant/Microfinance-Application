@@ -23,11 +23,18 @@ Route::middleware(['auth:web'])->group(function () {
     Route::get('/notifications', [NotificationController::class, 'index']);
     Route::post('/notifications/mark-read', [NotificationController::class, 'markAsRead']);
     Route::post('/notifications/mark-all-read', [NotificationController::class, 'markAllAsRead']);
-    
+
     // Search API
     Route::get('/search', [SearchController::class, 'search']);
+    Route::get('/search/clients', [SearchController::class, 'searchClients']);
+    Route::get('/search/loans', [SearchController::class, 'searchLoans']);
     
-    // Dashboard API for real-time updates
+    // Dashboard API
     Route::get('/dashboard/stats', [ApiDashboardController::class, 'getStats']);
-    Route::get('/dashboard/notifications', [ApiDashboardController::class, 'getNotifications']);
+    Route::get('/dashboard/recent-activities', [ApiDashboardController::class, 'getRecentActivities']);
 });
+
+// Public API routes (if needed)
+Route::get('/user', function (Request $request) {
+    return $request->user();
+})->middleware('auth:sanctum');

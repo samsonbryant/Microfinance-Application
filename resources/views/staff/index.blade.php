@@ -31,14 +31,47 @@
                             </tr>
                         </thead>
                         <tbody>
-                            <tr>
-                                <td colspan="6" class="text-center">
-                                    <div class="alert alert-info">
-                                        <i class="fas fa-info-circle"></i>
-                                        Staff members will be displayed here once the staff management system is fully integrated.
-                                    </div>
-                                </td>
-                            </tr>
+                            @if(isset($staff) && $staff->count() > 0)
+                                @foreach($staff as $member)
+                                <tr>
+                                    <td>
+                                        <div class="d-flex align-items-center">
+                                            <div>
+                                                <strong>{{ $member->name }}</strong><br>
+                                                <small class="text-muted">{{ $member->email }}</small>
+                                            </div>
+                                        </div>
+                                    </td>
+                                    <td><span class="badge bg-primary">{{ ucfirst($member->role ?? 'N/A') }}</span></td>
+                                    <td>{{ $member->branch->name ?? 'Head Office' }}</td>
+                                    <td>
+                                        <span class="badge bg-{{ $member->is_active ? 'success' : 'danger' }}">
+                                            {{ $member->is_active ? 'Active' : 'Inactive' }}
+                                        </span>
+                                    </td>
+                                    <td>{{ $member->created_at->format('M d, Y') }}</td>
+                                    <td>
+                                        <div class="btn-group">
+                                            <a href="{{ route('staff.show', $member) }}" class="btn btn-sm btn-info">
+                                                <i class="fas fa-eye"></i>
+                                            </a>
+                                            <a href="{{ route('staff.edit', $member) }}" class="btn btn-sm btn-warning">
+                                                <i class="fas fa-edit"></i>
+                                            </a>
+                                        </div>
+                                    </td>
+                                </tr>
+                                @endforeach
+                            @else
+                                <tr>
+                                    <td colspan="6" class="text-center">
+                                        <div class="alert alert-info">
+                                            <i class="fas fa-info-circle"></i>
+                                            No staff members found. Click "Add Staff" to create one.
+                                        </div>
+                                    </td>
+                                </tr>
+                            @endif
                         </tbody>
                     </table>
                 </div>
@@ -51,10 +84,16 @@
 @section('scripts')
 <script>
     $(document).ready(function() {
-        $('#staffTable').DataTable({
-            "pageLength": 25,
-            "order": [[ 4, "desc" ]]
-        });
+        // Only initialize DataTable if there's actual data (not just placeholder)
+        var $table = $('#staffTable');
+        var hasData = $table.find('tbody tr').length > 0 && !$table.find('tbody tr td[colspan]').length;
+        
+        if (hasData) {
+            $table.DataTable({
+                "pageLength": 25,
+                "order": [[ 4, "desc" ]]
+            });
+        }
     });
 </script>
 @endsection

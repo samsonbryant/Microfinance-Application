@@ -22,22 +22,68 @@ class BorrowerController extends Controller
     }
 
     /**
-     * Display the borrower dashboard.
+     * Ensure borrower has a client record
+     */
+    private function ensureClientExists($user)
+    {
+        if (!$user->client) {
+            // Auto-create client record for borrower
+            $client = Client::create([
+                'client_number' => Client::generateClientNumber(),
+                'user_id' => $user->id,
+                'first_name' => $user->name,
+                'last_name' => '',
+                'email' => $user->email,
+                'phone' => $user->phone ?? '',
+                'address' => '',
+                'date_of_birth' => null,
+                'gender' => 'other',
+                'marital_status' => 'single',
+                'identification_type' => 'national_id',
+                'identification_number' => '',
+                'status' => 'active',
+                'kyc_status' => 'pending',
+                'branch_id' => $user->branch_id ?? 1,
+                'created_by' => $user->id,
+            ]);
+            
+            // Relationship is established via user_id on clients table
+            // No need to update users table - just refresh the relationship
+            $user->load('client');
+            
+            return $client;
+        }
+        
+        return $user->client;
+    }
+
+    /**
+     * Display the borrower dashboard with real-time Livewire component
      */
     public function dashboard()
     {
         $user = Auth::user();
-        $client = $user->client;
+        $client = $this->ensureClientExists($user);
+
+        // Use new Livewire-powered dashboard with real-time updates
+        return view('borrower.dashboard-livewire');
+    }
+    
+    /**
+     * Get count of upcoming payments in next 30 days
+     */
+    private function getUpcomingPaymentsCount($client)
+    {
+        $upcomingCount = 0;
+        $loans = $client->loans()->whereIn('status', ['active', 'disbursed'])->get();
         
-        if (!$client) {
-            return redirect()->route('borrower.profile')->with('error', 'Please complete your profile first.');
+        foreach ($loans as $loan) {
+            if ($loan->next_due_date && $loan->next_due_date->lte(now()->addDays(30))) {
+                $upcomingCount++;
+            }
         }
-
-        $loans = $client->loans()->with(['collaterals'])->get();
-        $savingsAccounts = $client->savingsAccounts;
-        $recentTransactions = $client->transactions()->latest()->limit(10)->get();
-
-        return view('borrower.dashboard', compact('loans', 'savingsAccounts', 'recentTransactions'));
+        
+        return $upcomingCount;
     }
 
     /**
@@ -46,11 +92,7 @@ class BorrowerController extends Controller
     public function loans()
     {
         $user = Auth::user();
-        $client = $user->client;
-        
-        if (!$client) {
-            return redirect()->route('borrower.profile')->with('error', 'Please complete your profile first.');
-        }
+        $client = $this->ensureClientExists($user);
 
         $loans = $client->loans()
             ->with(['collaterals', 'repayments'])
@@ -78,11 +120,7 @@ class BorrowerController extends Controller
     public function savings()
     {
         $user = Auth::user();
-        $client = $user->client;
-        
-        if (!$client) {
-            return redirect()->route('borrower.profile')->with('error', 'Please complete your profile first.');
-        }
+        $client = $this->ensureClientExists($user);
 
         $savingsAccounts = $client->savingsAccounts()
             ->with(['transactions'])
@@ -110,11 +148,7 @@ class BorrowerController extends Controller
     public function transactions()
     {
         $user = Auth::user();
-        $client = $user->client;
-        
-        if (!$client) {
-            return redirect()->route('borrower.profile')->with('error', 'Please complete your profile first.');
-        }
+        $client = $this->ensureClientExists($user);
 
         $transactions = $client->transactions()
             ->with(['loan', 'savingsAccount'])
@@ -130,7 +164,7 @@ class BorrowerController extends Controller
     public function profile()
     {
         $user = Auth::user();
-        $client = $user->client;
+        $client = $this->ensureClientExists($user);
 
         return view('borrower.profile', compact('user', 'client'));
     }
@@ -147,15 +181,23 @@ class BorrowerController extends Controller
             'email' => 'required|email|unique:users,email,' . $user->id,
             'phone' => 'nullable|string|max:20',
             'address' => 'nullable|string|max:500',
+            'date_of_birth' => 'nullable|date',
+            'national_id' => 'nullable|string|max:50',
         ]);
 
         $user->update($request->only(['name', 'email', 'phone']));
 
-        if ($user->client) {
-            $user->client->update($request->only(['address']));
-        }
+        $client = $this->ensureClientExists($user);
+        $client->update([
+            'first_name' => $request->name,
+            'email' => $request->email,
+            'phone' => $request->phone,
+            'address' => $request->address,
+            'date_of_birth' => $request->date_of_birth,
+            'national_id' => $request->national_id,
+        ]);
 
-        return redirect()->route('borrower.profile')->with('success', 'Profile updated successfully.');
+        return redirect()->route('borrower.dashboard')->with('success', 'Profile updated successfully.');
     }
 
     /**
@@ -172,13 +214,9 @@ class BorrowerController extends Controller
         }
 
         $user = Auth::user();
-        $client = $user->client;
-        
-        if (!$client) {
-            return redirect()->route('borrower.profile')->with('error', 'Please complete your profile first.');
-        }
+        $client = $this->ensureClientExists($user);
 
-        $loans = $client->loans()->where('status', 'disbursed')->get();
+        $loans = $client->loans()->whereIn('status', ['active', 'disbursed'])->get();
 
         return view('borrower.payments.create', compact('loan', 'loans'));
     }
@@ -199,19 +237,22 @@ class BorrowerController extends Controller
         $this->authorize('view', $loan);
 
         try {
-            $this->loanService->processRepayment(
-                $loan, 
-                $request->amount, 
-                $request->payment_method
+            $repayment = $this->loanService->processRepayment(
+                $loan,
+                $request->amount,
+                $request->payment_method,
+                $request->reference
             );
+
+            activity()
+                ->performedOn($repayment)
+                ->causedBy(auth()->user())
+                ->log('Processed loan payment: ' . $repayment->id);
 
             return redirect()->route('borrower.loans.show', $loan)
                 ->with('success', 'Payment processed successfully.');
-                
         } catch (\Exception $e) {
-            return redirect()->back()
-                ->with('error', 'Payment failed: ' . $e->getMessage())
-                ->withInput();
+            return back()->with('error', 'Error processing payment: ' . $e->getMessage());
         }
     }
 
@@ -221,44 +262,147 @@ class BorrowerController extends Controller
     public function loanApplicationForm()
     {
         $user = Auth::user();
-        $client = $user->client;
-        
-        if (!$client) {
-            return redirect()->route('borrower.profile')->with('error', 'Please complete your profile first.');
-        }
+        $client = $this->ensureClientExists($user);
 
-        return view('borrower.loans.create');
+        return view('borrower.loans.create', compact('client'));
     }
 
     /**
-     * Submit loan application.
+     * Submit loan application (Real-time workflow)
      */
     public function submitLoanApplication(Request $request)
     {
         $user = Auth::user();
-        $client = $user->client;
-        
-        if (!$client) {
-            return redirect()->route('borrower.profile')->with('error', 'Please complete your profile first.');
-        }
+        $client = $this->ensureClientExists($user);
 
         $request->validate([
             'amount' => 'required|numeric|min:1000|max:100000',
-            'purpose' => 'required|string|max:500',
-            'term_months' => 'required|integer|min:1|max:36',
+            'loan_purpose' => 'required|string|max:1000',
+            'term_months' => 'required|integer|in:6,12,18,24,36',
+            'monthly_income' => 'nullable|numeric|min:0',
+            'employment_status' => 'nullable|string|in:employed,self_employed,business_owner,unemployed',
         ]);
 
-        $loan = Loan::create([
-            'client_id' => $client->id,
-            'amount' => $request->amount,
-            'purpose' => $request->purpose,
-            'term_months' => $request->term_months,
-            'interest_rate' => 12, // Default rate
-            'status' => 'pending',
-            'outstanding_balance' => $request->amount,
-        ]);
+        try {
+            // Update client income if provided
+            if ($request->monthly_income) {
+                $client->update(['monthly_income' => $request->monthly_income]);
+            }
 
-        return redirect()->route('borrower.loans.show', $loan)
-            ->with('success', 'Loan application submitted successfully.');
+            // Create loan application
+            $loan = Loan::create([
+                'client_id' => $client->id,
+                'loan_number' => 'L' . now()->format('Ymd') . str_pad(rand(1, 9999), 4, '0', STR_PAD_LEFT),
+                'amount' => $request->amount,
+                'principal_amount' => $request->amount,
+                'outstanding_balance' => $request->amount,
+                'loan_purpose' => $request->loan_purpose,
+                'term_months' => $request->term_months, // Required field
+                'loan_term' => $request->term_months, // Optional duplicate field
+                'interest_rate' => 12, // Default rate, can be adjusted by loan officer
+                'status' => 'pending', // Workflow: pending → under_review → approved → disbursed
+                'application_date' => now(),
+                'branch_id' => $user->branch_id ?? 1,
+                'created_by' => $user->id,
+            ]);
+
+            // Log activity (optional - don't fail if this fails)
+            try {
+                activity()
+                    ->performedOn($loan)
+                    ->causedBy($user)
+                    ->log("Borrower submitted loan application: {$loan->loan_number} for ${$request->amount}");
+            } catch (\Exception $e) {
+                \Log::warning('Failed to log activity: ' . $e->getMessage());
+            }
+
+            // Broadcast event for real-time updates (optional - don't fail if this fails)
+            try {
+                broadcast(new \App\Events\LoanApplicationSubmitted($loan))->toOthers();
+            } catch (\Exception $e) {
+                \Log::warning('Failed to broadcast event: ' . $e->getMessage());
+            }
+
+            // Send notification to loan officers (optional - don't fail if this fails)
+            try {
+                $loanOfficers = \App\Models\User::role('loan_officer')
+                    ->where('branch_id', $loan->branch_id)
+                    ->get();
+                
+                foreach ($loanOfficers as $officer) {
+                    $officer->notify(new \App\Notifications\LoanApprovalNotification($loan));
+                }
+            } catch (\Exception $e) {
+                \Log::warning('Failed to send notifications: ' . $e->getMessage());
+            }
+
+            return redirect()->route('borrower.dashboard')
+                ->with('success', 'Loan application submitted successfully! You will be notified when it\'s reviewed. Application #' . $loan->loan_number);
+        } catch (\Exception $e) {
+            \Log::error('Loan application submission failed: ' . $e->getMessage());
+            return back()->withInput()->with('error', 'Error submitting application: ' . $e->getMessage());
+        }
+    }
+
+    /**
+     * Get real-time dashboard data (AJAX)
+     */
+    public function getRealtimeData(Request $request)
+    {
+        try {
+            $user = Auth::user();
+            $client = $this->ensureClientExists($user);
+
+            // Get real-time data
+            $loans = $client->loans()->with(['collaterals', 'repayments'])->get();
+            $savingsAccounts = $client->savingsAccounts()->get();
+            $recentTransactions = $client->transactions()->latest()->limit(10)->get();
+            
+            $data = [
+                'stats' => [
+                    'active_loans' => $loans->whereIn('status', ['active', 'disbursed'])->count(),
+                    'total_loan_amount' => $loans->whereIn('status', ['active', 'disbursed'])->sum('amount'),
+                    'outstanding_balance' => $loans->whereIn('status', ['active', 'disbursed'])->sum('outstanding_balance'),
+                    'savings_balance' => $savingsAccounts->sum('balance'),
+                    'savings_accounts' => $savingsAccounts->count(),
+                    'upcoming_payments' => $this->getUpcomingPaymentsCount($client),
+                ],
+                'recent_transactions' => $recentTransactions,
+                'next_payment' => $this->getNextPayment($client),
+                'timestamp' => now()->toISOString()
+            ];
+
+            return response()->json([
+                'success' => true,
+                'data' => $data
+            ]);
+        } catch (\Exception $e) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Error fetching dashboard data: ' . $e->getMessage()
+            ], 500);
+        }
+    }
+    
+    /**
+     * Get next payment due
+     */
+    private function getNextPayment($client)
+    {
+        $nextPayment = $client->loans()
+            ->whereIn('status', ['active', 'disbursed'])
+            ->where('next_due_date', '>=', now())
+            ->orderBy('next_due_date', 'asc')
+            ->first();
+
+        if ($nextPayment) {
+            return [
+                'loan_id' => $nextPayment->id,
+                'amount' => $nextPayment->next_payment_amount ?? 0,
+                'due_date' => $nextPayment->next_due_date,
+            ];
+        }
+
+        return null;
     }
 }

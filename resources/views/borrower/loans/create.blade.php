@@ -15,6 +15,32 @@
         </div>
     </div>
 
+    @if(session('success'))
+    <div class="alert alert-success alert-dismissible fade show" role="alert">
+        <i class="fas fa-check-circle me-2"></i>{{ session('success') }}
+        <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+    </div>
+    @endif
+
+    @if(session('error'))
+    <div class="alert alert-danger alert-dismissible fade show" role="alert">
+        <i class="fas fa-exclamation-circle me-2"></i>{{ session('error') }}
+        <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+    </div>
+    @endif
+
+    @if($errors->any())
+    <div class="alert alert-danger alert-dismissible fade show" role="alert">
+        <h6><i class="fas fa-exclamation-triangle me-2"></i>Please fix the following errors:</h6>
+        <ul class="mb-0">
+            @foreach($errors->all() as $error)
+                <li>{{ $error }}</li>
+            @endforeach
+        </ul>
+        <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+    </div>
+    @endif
+
     <div class="row">
         <div class="col-lg-8">
             <div class="card shadow">
@@ -64,21 +90,61 @@
                         </div>
                         
                         <div class="mb-3">
-                            <label for="purpose" class="form-label">Loan Purpose <span class="text-danger">*</span></label>
-                            <textarea class="form-control @error('purpose') is-invalid @enderror" 
-                                      id="purpose" name="purpose" rows="4" 
-                                      placeholder="Please describe the purpose of this loan..." required>{{ old('purpose') }}</textarea>
-                            @error('purpose')
+                            <label for="loan_purpose" class="form-label">Loan Purpose <span class="text-danger">*</span></label>
+                            <textarea class="form-control @error('loan_purpose') is-invalid @enderror" 
+                                      id="loan_purpose" name="loan_purpose" rows="4" 
+                                      placeholder="Please describe the purpose of this loan..." required>{{ old('loan_purpose') }}</textarea>
+                            @error('loan_purpose')
                                 <div class="invalid-feedback">{{ $message }}</div>
                             @enderror
+                        </div>
+                        
+                        <div class="row">
+                            <div class="col-md-6">
+                                <div class="mb-3">
+                                    <label for="monthly_income" class="form-label">Monthly Income</label>
+                                    <div class="input-group">
+                                        <span class="input-group-text">$</span>
+                                        <input type="number" class="form-control @error('monthly_income') is-invalid @enderror" 
+                                               id="monthly_income" name="monthly_income" value="{{ old('monthly_income', $client->monthly_income ?? '') }}" 
+                                               step="0.01">
+                                    </div>
+                                    @error('monthly_income')
+                                        <div class="invalid-feedback">{{ $message }}</div>
+                                    @enderror
+                                </div>
+                            </div>
+                            
+                            <div class="col-md-6">
+                                <div class="mb-3">
+                                    <label for="employment_status" class="form-label">Employment Status</label>
+                                    <select class="form-select @error('employment_status') is-invalid @enderror" 
+                                            id="employment_status" name="employment_status">
+                                        <option value="">Select Status</option>
+                                        <option value="employed" {{ old('employment_status') == 'employed' ? 'selected' : '' }}>Employed</option>
+                                        <option value="self_employed" {{ old('employment_status') == 'self_employed' ? 'selected' : '' }}>Self-Employed</option>
+                                        <option value="business_owner" {{ old('employment_status') == 'business_owner' ? 'selected' : '' }}>Business Owner</option>
+                                        <option value="unemployed" {{ old('employment_status') == 'unemployed' ? 'selected' : '' }}>Unemployed</option>
+                                    </select>
+                                    @error('employment_status')
+                                        <div class="invalid-feedback">{{ $message }}</div>
+                                    @enderror
+                                </div>
+                            </div>
                         </div>
                         
                         <div class="row">
                             <div class="col-12">
                                 <div class="alert alert-info">
                                     <i class="fas fa-info-circle me-2"></i>
-                                    <strong>Important:</strong> Your loan application will be reviewed by our loan officers. 
-                                    You will be notified of the decision within 2-3 business days.
+                                    <strong>Application Process:</strong>
+                                    <ol class="mb-0 mt-2">
+                                        <li>You submit the application (Status: <span class="badge bg-warning">Pending</span>)</li>
+                                        <li>Loan Officer reviews (Status: <span class="badge bg-info">Under Review</span>)</li>
+                                        <li>Admin approves/rejects (Status: <span class="badge bg-success">Approved</span> or <span class="badge bg-danger">Rejected</span>)</li>
+                                        <li>If approved, funds are disbursed (Status: <span class="badge bg-primary">Disbursed</span>)</li>
+                                    </ol>
+                                    <p class="mb-0 mt-2"><strong>Timeline:</strong> Decision within 2-3 business days. You'll receive real-time notifications!</p>
                                 </div>
                             </div>
                         </div>

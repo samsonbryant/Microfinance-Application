@@ -46,7 +46,7 @@
         <div class="card bg-success text-white shadow">
             <div class="card-body text-center">
                 <h5>Total Revenue</h5>
-                <h2>${{ number_format($profitLoss['revenue'] ?? 0, 2) }}</h2>
+                <h2>${{ number_format($profitLoss['total_revenue'] ?? 0, 2) }}</h2>
             </div>
         </div>
     </div>
@@ -54,15 +54,15 @@
         <div class="card bg-danger text-white shadow">
             <div class="card-body text-center">
                 <h5>Total Expenses</h5>
-                <h2>${{ number_format($profitLoss['expenses'] ?? 0, 2) }}</h2>
+                <h2>${{ number_format($profitLoss['total_expenses'] ?? 0, 2) }}</h2>
             </div>
         </div>
     </div>
     <div class="col-md-4">
         <div class="card bg-primary text-white shadow">
             <div class="card-body text-center">
-                <h5>Net Profit</h5>
-                <h2>${{ number_format($profitLoss['net_profit'] ?? 0, 2) }}</h2>
+                <h5>Net Income</h5>
+                <h2>${{ number_format($profitLoss['net_income'] ?? 0, 2) }}</h2>
             </div>
         </div>
     </div>
@@ -121,11 +121,11 @@
             <div class="card-body">
                 <div class="row">
                     <div class="col-md-6">
-                        <h6 class="fw-bold">Assets: ${{ number_format($balanceSheet['assets'] ?? 0, 2) }}</h6>
+                        <h6 class="fw-bold">Assets: ${{ number_format($balanceSheet['total_assets'] ?? 0, 2) }}</h6>
                     </div>
                     <div class="col-md-6">
-                        <h6 class="fw-bold">Liabilities: ${{ number_format($balanceSheet['liabilities'] ?? 0, 2) }}</h6>
-                        <h6 class="fw-bold">Equity: ${{ number_format($balanceSheet['equity'] ?? 0, 2) }}</h6>
+                        <h6 class="fw-bold">Liabilities: ${{ number_format($balanceSheet['total_liabilities'] ?? 0, 2) }}</h6>
+                        <h6 class="fw-bold">Equity: ${{ number_format($balanceSheet['total_equity'] ?? 0, 2) }}</h6>
                     </div>
                 </div>
             </div>

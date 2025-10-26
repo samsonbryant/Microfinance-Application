@@ -4,116 +4,157 @@
 
 @section('content')
 <div class="container-fluid">
+    <div class="d-flex justify-content-between align-items-center mb-4">
+        <div>
+            <h1 class="h3 mb-0 text-gray-800">
+                <i class="fas fa-gavel text-danger me-2"></i>Recovery Actions
+            </h1>
+            <p class="text-muted mb-0">Manage loan recovery and collections</p>
+        </div>
+        <div class="btn-group">
+            <a href="{{ route('recovery-actions.create') }}" class="btn btn-primary">
+                <i class="fas fa-plus me-1"></i>New Action
+            </a>
+            <button type="button" class="btn btn-info" onclick="location.reload()">
+                <i class="fas fa-sync-alt"></i> Refresh
+            </button>
+        </div>
+    </div>
+
+    @if(session('success'))
+        <div class="alert alert-success alert-dismissible fade show" role="alert">
+            <i class="fas fa-check-circle me-2"></i>{{ session('success') }}
+            <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+        </div>
+    @endif
+
+    <!-- Stats -->
     <div class="row mb-4">
-        <div class="col-12">
-            <div class="d-flex justify-content-between align-items-center">
-                <h4><i class="fas fa-tools me-2"></i>Recovery Actions</h4>
-                <button class="btn btn-primary" data-bs-toggle="modal" data-bs-target="#newRecoveryModal">
-                    <i class="fas fa-plus me-2"></i>New Recovery Action
-                </button>
-            </div>
-        </div>
-    </div>
-
-    <div class="row">
-        <div class="col-12">
-            <div class="card shadow">
-                <div class="card-header py-3">
-                    <h6 class="m-0 font-weight-bold text-primary">
-                        <i class="fas fa-list me-2"></i>Recovery Actions
-                    </h6>
-                </div>
+        <div class="col-md-3">
+            <div class="card border-left-warning shadow h-100 py-2">
                 <div class="card-body">
-                    <div class="table-responsive">
-                        <table class="table table-hover">
-                            <thead>
-                                <tr>
-                                    <th>Date</th>
-                                    <th>Collection Case</th>
-                                    <th>Action Type</th>
-                                    <th>Notes</th>
-                                    <th>Performed By</th>
-                                    <th>Status</th>
-                                    <th>Next Action</th>
-                                    <th>Actions</th>
-                                </tr>
-                            </thead>
-                            <tbody>
-                                <tr>
-                                    <td colspan="8" class="text-center py-4">
-                                        <i class="fas fa-tools fa-3x text-muted mb-3"></i>
-                                        <p class="text-muted">No recovery actions found</p>
-                                        <button class="btn btn-primary" data-bs-toggle="modal" data-bs-target="#newRecoveryModal">
-                                            Create First Recovery Action
-                                        </button>
-                                    </td>
-                                </tr>
-                            </tbody>
-                        </table>
+                    <div class="row no-gutters align-items-center">
+                        <div class="col mr-2">
+                            <div class="text-xs font-weight-bold text-warning text-uppercase mb-1">Pending</div>
+                            <div class="h5 mb-0 font-weight-bold text-gray-800">{{ $stats['pending'] }}</div>
+                        </div>
+                        <div class="col-auto"><i class="fas fa-clock fa-2x text-gray-300"></i></div>
+                    </div>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-3">
+            <div class="card border-left-info shadow h-100 py-2">
+                <div class="card-body">
+                    <div class="row no-gutters align-items-center">
+                        <div class="col mr-2">
+                            <div class="text-xs font-weight-bold text-info text-uppercase mb-1">In Progress</div>
+                            <div class="h5 mb-0 font-weight-bold text-gray-800">{{ $stats['in_progress'] }}</div>
+                        </div>
+                        <div class="col-auto"><i class="fas fa-spinner fa-2x text-gray-300"></i></div>
+                    </div>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-3">
+            <div class="card border-left-success shadow h-100 py-2">
+                <div class="card-body">
+                    <div class="row no-gutters align-items-center">
+                        <div class="col mr-2">
+                            <div class="text-xs font-weight-bold text-success text-uppercase mb-1">Completed</div>
+                            <div class="h5 mb-0 font-weight-bold text-gray-800">{{ $stats['completed'] }}</div>
+                        </div>
+                        <div class="col-auto"><i class="fas fa-check-circle fa-2x text-gray-300"></i></div>
+                    </div>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-3">
+            <div class="card border-left-primary shadow h-100 py-2">
+                <div class="card-body">
+                    <div class="row no-gutters align-items-center">
+                        <div class="col mr-2">
+                            <div class="text-xs font-weight-bold text-primary text-uppercase mb-1">Total Recovered</div>
+                            <div class="h5 mb-0 font-weight-bold text-gray-800">${{ number_format($stats['total_recovered'], 0) }}</div>
+                        </div>
+                        <div class="col-auto"><i class="fas fa-dollar-sign fa-2x text-gray-300"></i></div>
                     </div>
                 </div>
             </div>
         </div>
     </div>
-</div>
 
-<!-- New Recovery Action Modal -->
-<div class="modal fade" id="newRecoveryModal" tabindex="-1">
-    <div class="modal-dialog modal-lg">
-        <div class="modal-content">
-            <div class="modal-header">
-                <h5 class="modal-title">New Recovery Action</h5>
-                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
-            </div>
-            <div class="modal-body">
-                <form>
-                    <div class="row">
-                        <div class="col-md-6">
-                            <div class="mb-3">
-                                <label for="collection_case" class="form-label">Collection Case</label>
-                                <select class="form-select" id="collection_case">
-                                    <option value="">Select Collection Case</option>
-                                </select>
-                            </div>
-                        </div>
-                        <div class="col-md-6">
-                            <div class="mb-3">
-                                <label for="action_type" class="form-label">Action Type</label>
-                                <select class="form-select" id="action_type">
-                                    <option value="phone_call">Phone Call</option>
-                                    <option value="email">Email</option>
-                                    <option value="visit">In-Person Visit</option>
-                                    <option value="legal_notice">Legal Notice</option>
-                                    <option value="collateral_seizure">Collateral Seizure</option>
-                                </select>
-                            </div>
-                        </div>
-                    </div>
-                    <div class="mb-3">
-                        <label for="notes" class="form-label">Notes</label>
-                        <textarea class="form-control" id="notes" rows="4" placeholder="Enter action details..."></textarea>
-                    </div>
-                    <div class="row">
-                        <div class="col-md-6">
-                            <div class="mb-3">
-                                <label for="action_date" class="form-label">Action Date</label>
-                                <input type="datetime-local" class="form-control" id="action_date">
-                            </div>
-                        </div>
-                        <div class="col-md-6">
-                            <div class="mb-3">
-                                <label for="next_action_date" class="form-label">Next Action Date</label>
-                                <input type="date" class="form-control" id="next_action_date">
-                            </div>
-                        </div>
-                    </div>
-                </form>
-            </div>
-            <div class="modal-footer">
-                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
-                <button type="button" class="btn btn-primary">Create Recovery Action</button>
-            </div>
+    <!-- Table -->
+    <div class="card shadow">
+        <div class="card-header py-3">
+            <h6 class="m-0 font-weight-bold text-primary">Recovery Actions Log</h6>
+        </div>
+        <div class="card-body">
+            @if($actions->count() > 0)
+                <div class="table-responsive">
+                    <table class="table table-hover">
+                        <thead>
+                            <tr>
+                                <th>Date</th>
+                                <th>Client/Loan</th>
+                                <th>Action Type</th>
+                                <th>Performed By</th>
+                                <th>Status</th>
+                                <th>Outcome</th>
+                                <th>Actions</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            @foreach($actions as $action)
+                            <tr>
+                                <td><small>{{ $action->action_date->format('M d, Y') }}</small></td>
+                                <td>
+                                    @if($action->collection && $action->collection->loan)
+                                        <strong>{{ $action->collection->loan->client->full_name ?? 'N/A' }}</strong><br>
+                                        <small class="text-muted">{{ $action->collection->loan->loan_number }}</small>
+                                    @else
+                                        <span class="text-muted">No loan data</span>
+                                    @endif
+                                </td>
+                                <td><span class="badge bg-info">{{ $action->getActionTypeText() }}</span></td>
+                                <td>{{ $action->performedBy->name ?? 'N/A' }}</td>
+                                <td><span class="badge bg-{{ $action->getStatusBadgeClass() }}">{{ ucfirst($action->status) }}</span></td>
+                                <td>{{ $action->outcome ?? 'Pending' }}</td>
+                                <td>
+                                    <div class="btn-group">
+                                        <a href="{{ route('recovery-actions.show', $action) }}" class="btn btn-sm btn-info">
+                                            <i class="fas fa-eye"></i>
+                                        </a>
+                                        @if($action->status !== 'completed')
+                                            <a href="{{ route('recovery-actions.edit', $action) }}" class="btn btn-sm btn-warning">
+                                                <i class="fas fa-edit"></i>
+                                            </a>
+                                        @endif
+                                    </div>
+                                </td>
+                            </tr>
+                            @endforeach
+                        </tbody>
+                    </table>
+                </div>
+                {{ $actions->links() }}
+            @else
+                <div class="text-center py-5">
+                    <i class="fas fa-gavel fa-4x text-muted mb-3"></i>
+                    <h5 class="text-muted">No Recovery Actions</h5>
+                    <p class="text-muted">No recovery actions have been initiated yet.</p>
+                </div>
+            @endif
         </div>
     </div>
 </div>
+
+@push('scripts')
+<script>
+// Auto-refresh every 30 seconds
+setInterval(function() {
+    location.reload();
+}, 30000);
+</script>
+@endpush
 @endsection

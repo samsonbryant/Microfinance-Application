@@ -16,6 +16,7 @@ class DatabaseSeeder extends Seeder
         // Seed roles and permissions first
         $this->call([
             RolePermissionSeeder::class,
+            AccountingPermissionsSeeder::class,
             ChartOfAccountsSeeder::class,
         ]);
 
@@ -118,6 +119,23 @@ class DatabaseSeeder extends Seeder
         );
         if (!$hr->hasRole('hr')) {
             $hr->assignRole('hr');
+        }
+
+        // Create accountant user
+        $accountant = User::firstOrCreate(
+            ['email' => 'accountant@microfinance.com'],
+            [
+                'name' => 'Accountant',
+                'username' => 'accountant',
+                'password' => Hash::make('accountant123'),
+                'role' => 'accountant',
+                'branch_id' => $branch->id,
+                'is_active' => true,
+                'email_verified_at' => now(),
+            ]
+        );
+        if (!$accountant->hasRole('accountant')) {
+            $accountant->assignRole('accountant');
         }
 
         // Create sample borrower

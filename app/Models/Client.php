@@ -38,7 +38,8 @@ class Client extends Model
         'kyc_status',
         'status',
         'branch_id',
-        'created_by'
+        'created_by',
+        'user_id'
     ];
 
     protected $casts = [
@@ -62,6 +63,11 @@ class Client extends Model
     public function createdBy(): BelongsTo
     {
         return $this->belongsTo(User::class, 'created_by');
+    }
+
+    public function user(): BelongsTo
+    {
+        return $this->belongsTo(User::class);
     }
 
     public function loans(): HasMany
@@ -114,5 +120,26 @@ class Client extends Model
         return $this->loans()
             ->whereIn('status', ['disbursed', 'active', 'overdue'])
             ->sum('outstanding_balance');
+    }
+
+    /**
+     * Generate unique client number
+     */
+    public static function generateClientNumber(): string
+    {
+        $prefix = 'CLT';
+        $timestamp = now()->format('Ymd');
+        $lastClient = static::where('client_number', 'like', "{$prefix}{$timestamp}%")
+            ->orderBy('client_number', 'desc')
+            ->first();
+
+        if ($lastClient) {
+            $lastNumber = (int) substr($lastClient->client_number, -4);
+            $newNumber = $lastNumber + 1;
+        } else {
+            $newNumber = 1;
+        }
+
+        return $prefix . $timestamp . str_pad($newNumber, 4, '0', STR_PAD_LEFT);
     }
 }

@@ -89,5 +89,35 @@ class StaffController extends Controller
         return redirect()->route('staff.index')
             ->with('success', 'Staff member deleted successfully.');
     }
+    
+    /**
+     * Activate staff member
+     */
+    public function activate(User $staff)
+    {
+        $staff->update(['is_active' => true]);
+        
+        activity()
+            ->performedOn($staff)
+            ->causedBy(auth()->user())
+            ->log("Staff member activated: {$staff->name}");
+        
+        return back()->with('success', 'Staff member activated successfully.');
+    }
+    
+    /**
+     * Deactivate staff member
+     */
+    public function deactivate(User $staff)
+    {
+        $staff->update(['is_active' => false]);
+        
+        activity()
+            ->performedOn($staff)
+            ->causedBy(auth()->user())
+            ->log("Staff member deactivated: {$staff->name}");
+        
+        return back()->with('success', 'Staff member deactivated successfully.');
+    }
 }
 
