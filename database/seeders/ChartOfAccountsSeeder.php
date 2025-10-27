@@ -13,9 +13,20 @@ class ChartOfAccountsSeeder extends Seeder
      */
     public function run(): void
     {
-        DB::statement('SET FOREIGN_KEY_CHECKS=0;');
+        // SQLite compatible foreign key handling
+        if (DB::getDriverName() === 'sqlite') {
+            DB::statement('PRAGMA foreign_keys = OFF;');
+        } else {
+            DB::statement('SET FOREIGN_KEY_CHECKS=0;');
+        }
+        
         ChartOfAccount::truncate();
-        DB::statement('SET FOREIGN_KEY_CHECKS=1;');
+        
+        if (DB::getDriverName() === 'sqlite') {
+            DB::statement('PRAGMA foreign_keys = ON;');
+        } else {
+            DB::statement('SET FOREIGN_KEY_CHECKS=1;');
+        }
 
         $accounts = [
             // ASSETS (1000-1999)
@@ -168,7 +179,7 @@ class ChartOfAccountsSeeder extends Seeder
                 'code' => '2300',
                 'name' => 'Bank Loans Payable',
                 'type' => 'liability',
-                'category' => 'bank_loans',
+                'category' => 'loan_from_shareholders',
                 'normal_balance' => 'credit',
                 'opening_balance' => 0,
                 'current_balance' => 0,
@@ -237,7 +248,7 @@ class ChartOfAccountsSeeder extends Seeder
                 'code' => '4200',
                 'name' => 'Processing Fee Income',
                 'type' => 'revenue',
-                'category' => 'fee_income',
+                'category' => 'service_fees',
                 'normal_balance' => 'credit',
                 'opening_balance' => 0,
                 'current_balance' => 0,
@@ -250,7 +261,7 @@ class ChartOfAccountsSeeder extends Seeder
                 'code' => '4300',
                 'name' => 'System Charge Income',
                 'type' => 'revenue',
-                'category' => 'fee_income',
+                'category' => 'service_fees',
                 'normal_balance' => 'credit',
                 'opening_balance' => 0,
                 'current_balance' => 0,

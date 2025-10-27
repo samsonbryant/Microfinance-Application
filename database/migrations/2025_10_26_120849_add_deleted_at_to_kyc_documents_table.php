@@ -11,9 +11,7 @@ return new class extends Migration
      */
     public function up(): void
     {
-        Schema::table('kyc_documents', function (Blueprint $table) {
-            $table->softDeletes();
-        });
+        // Skip - deleted_at already exists (soft deletes in base migration)
     }
 
     /**
@@ -21,8 +19,6 @@ return new class extends Migration
      */
     public function down(): void
     {
-        Schema::table('kyc_documents', function (Blueprint $table) {
-            $table->dropSoftDeletes();
-        });
+        // Skip
     }
 };

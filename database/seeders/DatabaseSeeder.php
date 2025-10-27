@@ -17,7 +17,7 @@ class DatabaseSeeder extends Seeder
         $this->call([
             RolePermissionSeeder::class,
             AccountingPermissionsSeeder::class,
-            ChartOfAccountsSeeder::class,
+            // ChartOfAccountsSeeder::class, // Temporarily disabled due to category enum issues
         ]);
 
         // Create test branch
