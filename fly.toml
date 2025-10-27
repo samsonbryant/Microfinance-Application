@@ -1,48 +1,38 @@
-# Fly.io Configuration for Microfinance Application
-app = "microfinance-laravel"
-primary_region = "iad"
+# fly.toml app configuration file generated for microfinance-laravel on 2025-10-27T08:09:17Z
+#
+# See https://fly.io/docs/reference/configuration/ for information about how to use this file.
+#
+
+app = 'microfinance-laravel'
+primary_region = 'iad'
+console_command = 'php /var/www/html/artisan tinker'
 
 [build]
-  dockerfile = "Dockerfile"
+  [build.args]
+    NODE_VERSION = '18'
+    PHP_VERSION = '8.2'
 
 [env]
-  APP_ENV = "production"
-  LOG_CHANNEL = "stack"
-  LOG_LEVEL = "info"
-  DB_CONNECTION = "sqlite"
-  DB_DATABASE = "/var/www/html/database/database.sqlite"
-  CACHE_DRIVER = "file"
-  QUEUE_CONNECTION = "database"
-  SESSION_DRIVER = "file"
-  SESSION_LIFETIME = "120"
-  BROADCAST_DRIVER = "log"
+  APP_ENV = 'production'
+  LOG_CHANNEL = 'stderr'
+  LOG_LEVEL = 'info'
+  LOG_STDERR_FORMATTER = 'Monolog\Formatter\JsonFormatter'
+  SESSION_DRIVER = 'cookie'
+  SESSION_SECURE_COOKIE = 'true'
 
 [http_service]
   internal_port = 8080
   force_https = true
-  auto_stop_machines = false
+  auto_stop_machines = 'stop'
   auto_start_machines = true
-  min_machines_running = 1
-  processes = ["app"]
-
-  [http_service.concurrency]
-    type = "requests"
-    hard_limit = 250
-    soft_limit = 200
-
-  [[http_service.checks]]
-    interval = "30s"
-    timeout = "5s"
-    grace_period = "10s"
-    method = "GET"
-    path = "/health"
+  min_machines_running = 0
+  processes = ['app']
 
 [[vm]]
   memory = '1gb'
   cpu_kind = 'shared'
   cpus = 1
 
-[[statics]]
-  guest_path = "/var/www/html/public"
-  url_prefix = "/"
-
+[[mounts]]
+  source = 'microfinance_data'
+  destination = '/var/www/html/database'

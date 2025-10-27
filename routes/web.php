@@ -122,11 +122,8 @@ Route::middleware('auth')->group(function () {
     Route::post('transactions/{transaction}/reverse', [App\Http\Controllers\TransactionController::class, 'reverse'])->name('transactions.reverse');
     Route::get('api/transactions', [App\Http\Controllers\TransactionController::class, 'getTransactions'])->name('transactions.api');
     
-    // Loan Repayments Management
-    Route::get('loan-repayments', [App\Http\Controllers\LoanRepaymentController::class, 'index'])->name('loan-repayments.index');
-    Route::get('loan-repayments/create', [App\Http\Controllers\LoanRepaymentController::class, 'create'])->name('loan-repayments.create');
-    Route::post('loan-repayments', [App\Http\Controllers\LoanRepaymentController::class, 'store'])->name('loan-repayments.store');
-    Route::get('loan-repayments/{repayment}', [App\Http\Controllers\LoanRepaymentController::class, 'show'])->name('loan-repayments.show');
+    // Loan Repayments Management - Note: Main CRUD routes handled by resource route below (line 299)
+    // Additional custom routes for loan repayments
     Route::get('loan-repayments/stats', [App\Http\Controllers\LoanRepaymentController::class, 'getStats'])->name('loan-repayments.stats');
     
     // Risk Assessment Management
