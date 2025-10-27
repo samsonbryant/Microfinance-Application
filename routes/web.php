@@ -10,6 +10,15 @@ Route::get('/', function () {
     return redirect()->route('login');
 });
 
+// Health check endpoint for Fly.io
+Route::get('/health', function () {
+    return response()->json([
+        'status' => 'healthy',
+        'timestamp' => now()->toISOString(),
+        'app' => config('app.name'),
+    ]);
+});
+
 
 
 
