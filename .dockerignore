@@ -1,6 +1,6 @@
 # excludes from the docker image/build
 
-# 1. Ignore Laravel-specific files we don't need
+# 1. Ignore Laravel-specific files we don't need  
 bootstrap/cache/*
 storage/framework/cache/*
 storage/framework/sessions/*
@@ -27,9 +27,4 @@ fly.toml
 **/Thumbs.db
 public/hot
 
-# 3. IMPORTANT: Include these essential files
-!database/migrations
-!database/seeders
-!database/factories
-!database/*.sql
-!database/*.php
+# NOTE: database directory is intentionally NOT excluded - we need migrations, seeders, factories
