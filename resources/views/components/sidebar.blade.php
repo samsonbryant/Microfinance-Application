@@ -464,7 +464,7 @@
                     <span class="nav-section-title">Revenue & Income</span>
                 </li>
                 <li class="nav-item">
-                    <a href="{{ route('revenues.index') }}" class="nav-link {{ request()->routeIs('revenues.*') ? 'active' : '' }}">
+                    <a href="{{ route('accounting.revenues.index') }}" class="nav-link {{ request()->routeIs('accounting.revenues.*') ? 'active' : '' }}">
                         <i class="fas fa-coins"></i>
                         <span class="nav-text">Revenue Entries</span>
                     </a>
@@ -481,7 +481,7 @@
                     </a>
                 </li>
                 <li class="nav-item">
-                    <a href="{{ route('expenses.index') }}" class="nav-link {{ request()->routeIs('expenses.*') ? 'active' : '' }}">
+                    <a href="{{ route('accounting.expenses.index') }}" class="nav-link {{ request()->routeIs('accounting.expenses.*') ? 'active' : '' }}">
                         <i class="fas fa-money-bill-wave"></i>
                         <span class="nav-text">Expenses</span>
                     </a>
@@ -492,13 +492,13 @@
                     <span class="nav-section-title">Banking & Transfers</span>
                 </li>
                 <li class="nav-item">
-                    <a href="{{ route('banks.index') }}" class="nav-link {{ request()->routeIs('banks.*') ? 'active' : '' }}">
+                    <a href="{{ route('accounting.banks.index') }}" class="nav-link {{ request()->routeIs('accounting.banks.*') ? 'active' : '' }}">
                         <i class="fas fa-university"></i>
                         <span class="nav-text">Banks</span>
                     </a>
                 </li>
                 <li class="nav-item">
-                    <a href="{{ route('transfers.index') }}" class="nav-link {{ request()->routeIs('transfers.*') ? 'active' : '' }}">
+                    <a href="{{ route('accounting.transfers.index') }}" class="nav-link {{ request()->routeIs('accounting.transfers.*') ? 'active' : '' }}">
                         <i class="fas fa-exchange-alt"></i>
                         <span class="nav-text">Transfers</span>
                     </a>
