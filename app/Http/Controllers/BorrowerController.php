@@ -95,7 +95,7 @@ class BorrowerController extends Controller
         $client = $this->ensureClientExists($user);
 
         $loans = $client->loans()
-            ->with(['collaterals', 'repayments'])
+            ->with(['collateral', 'transactions'])
             ->orderBy('created_at', 'desc')
             ->paginate(10);
 
@@ -354,7 +354,7 @@ class BorrowerController extends Controller
             $client = $this->ensureClientExists($user);
 
             // Get real-time data
-            $loans = $client->loans()->with(['collaterals', 'repayments'])->get();
+            $loans = $client->loans()->with(['collateral', 'transactions'])->get();
             $savingsAccounts = $client->savingsAccounts()->get();
             $recentTransactions = $client->transactions()->latest()->limit(10)->get();
             
