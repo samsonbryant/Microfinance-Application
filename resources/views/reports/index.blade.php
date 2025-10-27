@@ -53,35 +53,7 @@
             </div>
         </div>
 
-        <div class="col-xl-3 col-md-6 mb-4">
-            <div class="card stat-card bg-warning text-white">
-                <div class="card-body">
-                    <div class="stat-icon">
-                        <i class="fas fa-users"></i>
-                    </div>
-                    <div class="stat-value">{{ number_format($summary['total_clients']) }}</div>
-                    <div class="stat-label">Total Clients</div>
-                    <div class="mt-2">
-                        <small class="opacity-75">Registered</small>
-                    </div>
-                </div>
-            </div>
-        </div>
-
-        <div class="col-xl-3 col-md-6 mb-4">
-            <div class="card stat-card bg-info text-white">
-                <div class="card-body">
-                    <div class="stat-icon">
-                        <i class="fas fa-piggy-bank"></i>
-                    </div>
-                    <div class="stat-value">${{ number_format($summary['total_savings'], 0) }}</div>
-                    <div class="stat-label">Total Savings</div>
-                    <div class="mt-2">
-                        <small class="opacity-75">Deposits</small>
-                    </div>
-                </div>
-            </div>
-        </div>
+        @endforeach
     </div>
 
     <!-- Report Categories -->
