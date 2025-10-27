@@ -37,7 +37,19 @@ class ReportController extends Controller
         // Get recent reports
         $recentReports = $this->getRecentReports();
         
-        return view('reports.index', compact('summary', 'recentReports', 'role'));
+        // Get report types
+        $reportTypes = [
+            'portfolio_at_risk' => 'Portfolio at Risk',
+            'loan_performance' => 'Loan Performance',
+            'client_demographics' => 'Client Demographics',
+            'financial_summary' => 'Financial Summary',
+            'branch_performance' => 'Branch Performance',
+            'collections_report' => 'Collections Report',
+            'recovery_report' => 'Recovery Report',
+            'audit_trail' => 'Audit Trail',
+        ];
+        
+        return view('reports.index', compact('summary', 'recentReports', 'role', 'reportTypes'));
     }
 
     /**
