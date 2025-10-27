@@ -21,33 +21,33 @@
         </div>
     </div>
 
-    <!-- Summary Statistics -->
+    <!-- Available Report Types -->
     <div class="row mb-4">
-        <div class="col-xl-3 col-md-6 mb-4">
-            <div class="card stat-card bg-primary text-white">
-                <div class="card-body">
-                    <div class="stat-icon">
-                        <i class="fas fa-hand-holding-usd"></i>
-                    </div>
-                    <div class="stat-value">{{ number_format($summary['total_loans']) }}</div>
-                    <div class="stat-label">Total Loans</div>
-                    <div class="mt-2">
-                        <small class="opacity-75">Active: {{ number_format($summary['active_loans']) }}</small>
-                    </div>
-                </div>
-            </div>
-        </div>
+        @php
+            $reportIcons = [
+                'portfolio_at_risk' => ['icon' => 'fa-exclamation-triangle', 'color' => 'danger'],
+                'loan_performance' => ['icon' => 'fa-chart-line', 'color' => 'success'],
+                'client_demographics' => ['icon' => 'fa-users', 'color' => 'info'],
+                'financial_summary' => ['icon' => 'fa-dollar-sign', 'color' => 'primary'],
+                'branch_performance' => ['icon' => 'fa-building', 'color' => 'warning'],
+                'collections_report' => ['icon' => 'fa-credit-card', 'color' => 'success'],
+                'recovery_report' => ['icon' => 'fa-tools', 'color' => 'danger'],
+                'audit_trail' => ['icon' => 'fa-history', 'color' => 'secondary'],
+            ];
+        @endphp
 
+        @foreach($reportTypes as $key => $label)
         <div class="col-xl-3 col-md-6 mb-4">
-            <div class="card stat-card bg-success text-white">
+            <div class="card stat-card bg-{{ $reportIcons[$key]['color'] ?? 'primary' }} text-white h-100">
                 <div class="card-body">
                     <div class="stat-icon">
-                        <i class="fas fa-dollar-sign"></i>
+                        <i class="fas {{ $reportIcons[$key]['icon'] ?? 'fa-chart-bar' }}"></i>
                     </div>
-                    <div class="stat-value">${{ number_format($summary['total_portfolio'], 0) }}</div>
-                    <div class="stat-label">Total Portfolio</div>
-                    <div class="mt-2">
-                        <small class="opacity-75">Value</small>
+                    <div class="stat-label">{{ $label }}</div>
+                    <div class="mt-3">
+                        <a href="{{ route('accounting.reports.show', $key) }}" class="btn btn-light btn-sm">
+                            <i class="fas fa-eye"></i> View Report
+                        </a>
                     </div>
                 </div>
             </div>
