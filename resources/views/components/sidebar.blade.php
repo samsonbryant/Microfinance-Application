@@ -801,15 +801,9 @@
                     </a>
                 </li>
                 
-                <!-- Reports Section -->
+                <!-- Transaction History -->
                 <li class="nav-section">
-                    <span class="nav-section-title">My Reports</span>
-                </li>
-                <li class="nav-item">
-                    <a href="{{ route('borrower.reports.financial') }}" class="nav-link {{ request()->routeIs('borrower.reports.*') ? 'active' : '' }}">
-                        <i class="fas fa-chart-line"></i>
-                        <span class="nav-text">My Financial Report</span>
-                    </a>
+                    <span class="nav-section-title">History</span>
                 </li>
                 <li class="nav-item">
                     <a href="{{ route('borrower.transactions.index') }}" class="nav-link {{ request()->routeIs('borrower.transactions.*') ? 'active' : '' }}">

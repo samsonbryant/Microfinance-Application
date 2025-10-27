@@ -102,50 +102,86 @@ class LoanCreationObserver
     }
 
     /**
-     * Send notifications based on loan status
+     * Send notifications based on loan status - REAL-TIME to all parties
      */
     private function sendNotifications(Loan $loan, $event)
     {
         try {
             switch ($event) {
                 case 'reviewed':
-                    // Notify borrower and admin
+                    // Loan Officer has reviewed - notify borrower, branch manager, and admin
                     if ($loan->client && $loan->client->user) {
-                        $loan->client->user->notify(new \App\Notifications\LoanApprovalNotification($loan));
+                        $loan->client->user->notify(new \App\Notifications\LoanApplicationNotification($loan, 'documents_added'));
                     }
+                    
+                    // Notify branch manager
+                    $managers = \App\Models\User::role('branch_manager')
+                        ->where('branch_id', $loan->branch_id)
+                        ->get();
+                    foreach ($managers as $manager) {
+                        $manager->notify(new \App\Notifications\LoanApplicationNotification($loan, 'reviewed'));
+                    }
+                    
+                    // Notify admin
                     $admins = \App\Models\User::role('admin')->get();
                     foreach ($admins as $admin) {
-                        $admin->notify(new \App\Notifications\LoanApprovalNotification($loan));
+                        $admin->notify(new \App\Notifications\LoanApplicationNotification($loan, 'reviewed'));
                     }
                     break;
                     
                 case 'approved':
-                    // Notify borrower, loan officer, branch manager
+                    // Branch manager approved - notify borrower, loan officer, and admin
                     if ($loan->client && $loan->client->user) {
-                        $loan->client->user->notify(new \App\Notifications\LoanApprovedNotification($loan));
+                        $loan->client->user->notify(new \App\Notifications\LoanApplicationNotification($loan, 'kyc_verified'));
+                    }
+                    
+                    // Notify loan officer
+                    if ($loan->createdBy) {
+                        $loan->createdBy->notify(new \App\Notifications\LoanApplicationNotification($loan, 'approved'));
+                    }
+                    
+                    // Notify admin for final approval
+                    $admins = \App\Models\User::role('admin')->get();
+                    foreach ($admins as $admin) {
+                        $admin->notify(new \App\Notifications\LoanApplicationNotification($loan, 'approved'));
+                    }
+                    
+                    // Notify branch manager
+                    $managers = \App\Models\User::role('branch_manager')
+                        ->where('branch_id', $loan->branch_id)
+                        ->get();
+                    foreach ($managers as $manager) {
+                        $manager->notify(new \App\Notifications\LoanApplicationNotification($loan, 'approved'));
+                    }
+                    break;
+                    
+                case 'rejected':
+                    // Notify borrower and loan officer
+                    if ($loan->client && $loan->client->user) {
+                        $loan->client->user->notify(new \App\Notifications\LoanApplicationNotification($loan, 'rejected'));
                     }
                     if ($loan->createdBy) {
-                        $loan->createdBy->notify(new \App\Notifications\LoanApprovedNotification($loan));
+                        $loan->createdBy->notify(new \App\Notifications\LoanApplicationNotification($loan, 'rejected'));
+                    }
+                    break;
+                    
+                case 'disbursed':
+                    // Admin disbursed - notify EVERYONE in real-time
+                    if ($loan->client && $loan->client->user) {
+                        $loan->client->user->notify(new \App\Notifications\LoanApplicationNotification($loan, 'disbursed'));
+                    }
+                    if ($loan->createdBy) {
+                        $loan->createdBy->notify(new \App\Notifications\LoanApplicationNotification($loan, 'disbursed'));
                     }
                     $managers = \App\Models\User::role('branch_manager')
                         ->where('branch_id', $loan->branch_id)
                         ->get();
                     foreach ($managers as $manager) {
-                        $manager->notify(new \App\Notifications\LoanApprovedNotification($loan));
+                        $manager->notify(new \App\Notifications\LoanApplicationNotification($loan, 'disbursed'));
                     }
-                    break;
-                    
-                case 'rejected':
-                    // Notify borrower
-                    if ($loan->client && $loan->client->user) {
-                        $loan->client->user->notify(new \App\Notifications\LoanApprovalNotification($loan));
-                    }
-                    break;
-                    
-                case 'disbursed':
-                    // Notify everyone
-                    if ($loan->client && $loan->client->user) {
-                        $loan->client->user->notify(new \App\Notifications\LoanApprovedNotification($loan));
+                    $admins = \App\Models\User::role('admin')->get();
+                    foreach ($admins as $admin) {
+                        $admin->notify(new \App\Notifications\LoanApplicationNotification($loan, 'disbursed'));
                     }
                     break;
             }
