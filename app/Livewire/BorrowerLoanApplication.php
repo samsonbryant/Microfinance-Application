@@ -113,15 +113,17 @@ class BorrowerLoanApplication extends Component
                 'interest_rate' => $this->interest_rate,
                 'term_months' => $this->term_months,
                 'loan_term' => $this->term_months,
-                'purpose' => $this->purpose,
+                'loan_purpose' => $this->purpose,
                 'status' => 'pending',
                 'created_by' => auth()->id(),
-                'loan_product_id' => $this->selected_product,
-                'employment_status' => $this->employment_status,
-                'monthly_income' => $this->monthly_income,
-                'existing_loans' => $this->existing_loans === 'yes',
-                'collateral_description' => $this->collateral_description,
                 'application_date' => now(),
+                // Store additional info in notes for now
+                'notes' => json_encode([
+                    'employment_status' => $this->employment_status,
+                    'monthly_income' => $this->monthly_income,
+                    'existing_loans' => $this->existing_loans,
+                    'collateral_description' => $this->collateral_description,
+                ]),
             ]);
 
             // Calculate loan details (done by LoanCreationObserver)
