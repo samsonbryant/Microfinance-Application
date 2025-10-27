@@ -5,7 +5,6 @@ namespace App\Livewire;
 use Livewire\Component;
 use App\Models\Loan;
 use App\Models\Client;
-use App\Models\LoanProduct;
 use App\Services\LoanCalculationService;
 use App\Events\LoanApplicationSubmitted;
 use Illuminate\Support\Facades\DB;
@@ -53,8 +52,8 @@ class BorrowerLoanApplication extends Component
             return redirect()->route('borrower.dashboard');
         }
 
-        // Load loan products if available
-        $this->loan_products = LoanProduct::where('is_active', true)->get() ?? [];
+        // Loan products feature - can be implemented later
+        $this->loan_products = [];
     }
 
     public function updated($propertyName)
@@ -70,13 +69,9 @@ class BorrowerLoanApplication extends Component
 
     public function selectProduct($productId)
     {
-        $product = LoanProduct::find($productId);
-        if ($product) {
-            $this->selected_product = $productId;
-            $this->interest_rate = $product->interest_rate;
-            $this->term_months = $product->max_term_months ?? 12;
-            $this->calculateLoan();
-        }
+        // Loan products feature - can be implemented later
+        // For now, users can manually enter loan details
+        $this->calculateLoan();
     }
 
     public function calculateLoan()
