@@ -37,6 +37,8 @@ Route::middleware(['auth', 'verified'])->group(function () {
         Route::get('/branch-manager/dashboard', [App\Http\Controllers\BranchManagerDashboardController::class, 'index'])->name('branch-manager.dashboard');
         Route::get('/branch-manager/dashboard/realtime', [App\Http\Controllers\BranchManagerDashboardController::class, 'getRealtimeData'])->name('branch-manager.dashboard.realtime');
         Route::get('/branch-manager/dashboard/export', [App\Http\Controllers\BranchManagerDashboardController::class, 'exportReport'])->name('branch-manager.dashboard.export');
+        Route::get('/branch-manager/collections', [App\Http\Controllers\BranchManagerDashboardController::class, 'collections'])->name('branch-manager.collections');
+        Route::post('/branch-manager/process-payment', [App\Http\Controllers\BranchManagerDashboardController::class, 'processPayment'])->name('branch-manager.process-payment');
     });
 
     // Loan Officer Dashboard - only loan_officer role

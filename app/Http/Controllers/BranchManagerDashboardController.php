@@ -98,6 +98,97 @@ class BranchManagerDashboardController extends Controller
     }
     
     /**
+     * Display collections page for branch manager
+     */
+    public function collections()
+    {
+        return view('branch-manager.collections');
+    }
+
+    /**
+     * Process payment from branch manager
+     */
+    public function processPayment(Request $request)
+    {
+        $validated = $request->validate([
+            'loan_id' => 'required|exists:loans,id',
+            'amount' => 'required|numeric|min:0.01',
+            'payment_method' => 'required|in:cash,bank_transfer,mobile_money,cheque',
+            'payment_date' => 'required|date',
+            'reference_number' => 'nullable|string|max:100',
+            'notes' => 'nullable|string|max:500',
+        ]);
+
+        DB::beginTransaction();
+        try {
+            $loan = Loan::findOrFail($validated['loan_id']);
+            $branchId = auth()->user()->branch_id;
+
+            // Verify loan belongs to branch manager's branch
+            if ($loan->branch_id !== $branchId) {
+                return back()->with('error', 'Unauthorized access to this loan.');
+            }
+
+            // Ensure loan can accept payments
+            if (!in_array($loan->status, ['active', 'overdue'])) {
+                return back()->with('error', 'This loan cannot accept repayments.');
+            }
+
+            // Create transaction
+            $transaction = \App\Models\Transaction::create([
+                'transaction_number' => 'REP' . now()->format('Ymd') . str_pad(rand(1, 99999), 5, '0', STR_PAD_LEFT),
+                'client_id' => $loan->client_id,
+                'loan_id' => $loan->id,
+                'type' => 'loan_repayment',
+                'amount' => $validated['amount'],
+                'description' => 'Loan repayment for ' . $loan->loan_number . ($validated['notes'] ? ' - ' . $validated['notes'] : ''),
+                'reference_number' => $validated['reference_number'] ?? null,
+                'status' => 'completed',
+                'branch_id' => $loan->branch_id,
+                'created_by' => auth()->id(),
+                'processed_at' => $validated['payment_date'],
+            ]);
+
+            // Calculate new balance
+            $newBalance = $loan->outstanding_balance - $validated['amount'];
+            
+            // Update loan
+            $loan->update([
+                'outstanding_balance' => max($newBalance, 0),
+                'total_paid' => ($loan->total_paid ?? 0) + $validated['amount'],
+                'status' => $newBalance <= 0 ? 'completed' : ($loan->status === 'overdue' && $newBalance < $loan->outstanding_balance ? 'active' : $loan->status),
+                'last_payment_date' => $validated['payment_date'],
+            ]);
+
+            // Update next due date if loan is completed
+            if ($newBalance <= 0) {
+                $loan->update(['next_due_date' => null]);
+            } elseif ($loan->next_due_date && $loan->next_due_date < now()) {
+                // Calculate next payment date based on loan term
+                $loan->update([
+                    'next_due_date' => now()->addMonth()
+                ]);
+            }
+
+            // Log activity
+            activity()
+                ->performedOn($loan)
+                ->causedBy(auth()->user())
+                ->log("Repayment of $" . number_format($validated['amount'], 2) . " recorded for loan {$loan->loan_number} by Branch Manager");
+
+            DB::commit();
+
+            return back()->with('success', 'Payment processed successfully! Transaction #' . $transaction->transaction_number);
+
+        } catch (\Exception $e) {
+            DB::rollback();
+            \Log::error('Branch Manager Payment processing error: ' . $e->getMessage());
+            return back()->withInput()
+                ->with('error', 'Error processing payment: ' . $e->getMessage());
+        }
+    }
+    
+    /**
      * Get empty analytics structure for fallback
      */
     private function getEmptyAnalytics()

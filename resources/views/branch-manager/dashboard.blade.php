@@ -13,6 +13,9 @@
             <p class="text-muted mb-0">{{ auth()->user()->branch->name ?? 'Branch' }} Performance & Operations</p>
         </div>
         <div class="btn-group">
+            <a href="{{ route('branch-manager.collections') }}" class="btn btn-success">
+                <i class="fas fa-money-bill-wave"></i> Collections & Payments
+            </a>
             <button type="button" class="btn btn-info" onclick="refreshDashboard()">
                 <i class="fas fa-sync-alt"></i> Refresh
             </button>
@@ -290,9 +293,20 @@
                                         <td>{{ $loan->client->first_name ?? 'N/A' }}</td>
                                         <td>${{ number_format($loan->next_payment_amount ?? 0, 2) }}</td>
                                         <td>
-                                            <a href="{{ route('loans.show', $loan->id) }}" class="btn btn-sm btn-success">
-                                                <i class="fas fa-dollar-sign"></i>
-                                            </a>
+                                            <div class="btn-group">
+                                                <a href="{{ route('loans.show', $loan->id) }}" class="btn btn-sm btn-info" title="View Details">
+                                                    <i class="fas fa-eye"></i>
+                                                </a>
+                                                <button class="btn btn-sm btn-success quick-payment-btn" 
+                                                        data-loan-id="{{ $loan->id }}"
+                                                        data-loan-number="{{ $loan->loan_number ?? 'N/A' }}"
+                                                        data-client-name="{{ $loan->client->first_name ?? 'N/A' }}"
+                                                        data-outstanding="{{ $loan->outstanding_balance ?? 0 }}"
+                                                        data-next-payment="{{ $loan->next_payment_amount ?? 0 }}"
+                                                        title="Quick Payment">
+                                                    <i class="fas fa-dollar-sign"></i>
+                                                </button>
+                                            </div>
                                         </td>
                                     </tr>
                                     @endforeach
@@ -376,6 +390,84 @@
                     </div>
                 </div>
             </div>
+        </div>
+    </div>
+</div>
+
+<!-- Quick Payment Modal -->
+<div class="modal fade" id="quickPaymentModal" tabindex="-1" aria-labelledby="quickPaymentModalLabel" aria-hidden="true">
+    <div class="modal-dialog modal-lg">
+        <div class="modal-content">
+            <div class="modal-header bg-success text-white">
+                <h5 class="modal-title" id="quickPaymentModalLabel">
+                    <i class="fas fa-dollar-sign me-2"></i>Quick Payment Processing
+                </h5>
+                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <form id="quickPaymentForm" action="{{ route('branch-manager.process-payment') }}" method="POST">
+                @csrf
+                <div class="modal-body">
+                    <!-- Loan Details Display -->
+                    <div class="card mb-3 bg-light">
+                        <div class="card-body">
+                            <div class="row">
+                                <div class="col-md-6">
+                                    <p class="mb-1"><strong>Loan Number:</strong> <span id="modal-loan-number"></span></p>
+                                    <p class="mb-0"><strong>Client:</strong> <span id="modal-client-name"></span></p>
+                                </div>
+                                <div class="col-md-6">
+                                    <p class="mb-1"><strong>Outstanding:</strong> <span id="modal-outstanding" class="text-danger"></span></p>
+                                    <p class="mb-0"><strong>Next Payment:</strong> <span id="modal-next-payment" class="text-success"></span></p>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <input type="hidden" name="loan_id" id="modal-loan-id">
+
+                    <!-- Payment Form -->
+                    <div class="row">
+                        <div class="col-md-6 mb-3">
+                            <label for="payment_amount" class="form-label">Payment Amount <span class="text-danger">*</span></label>
+                            <div class="input-group">
+                                <span class="input-group-text">$</span>
+                                <input type="number" class="form-control" id="payment_amount" name="amount" step="0.01" required>
+                            </div>
+                        </div>
+
+                        <div class="col-md-6 mb-3">
+                            <label for="payment_method" class="form-label">Payment Method <span class="text-danger">*</span></label>
+                            <select class="form-select" id="payment_method" name="payment_method" required>
+                                <option value="cash">Cash</option>
+                                <option value="bank_transfer">Bank Transfer</option>
+                                <option value="mobile_money">Mobile Money</option>
+                                <option value="cheque">Cheque</option>
+                            </select>
+                        </div>
+
+                        <div class="col-md-6 mb-3">
+                            <label for="payment_date" class="form-label">Payment Date <span class="text-danger">*</span></label>
+                            <input type="date" class="form-control" id="payment_date" name="payment_date" value="{{ date('Y-m-d') }}" required>
+                        </div>
+
+                        <div class="col-md-6 mb-3">
+                            <label for="reference_number" class="form-label">Reference Number</label>
+                            <input type="text" class="form-control" id="reference_number" name="reference_number" placeholder="Optional">
+                        </div>
+
+                        <div class="col-12 mb-3">
+                            <label for="payment_notes" class="form-label">Notes</label>
+                            <textarea class="form-control" id="payment_notes" name="notes" rows="2" placeholder="Optional notes"></textarea>
+                        </div>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+                    <button type="submit" class="btn btn-success">
+                        <i class="fas fa-check me-2"></i>Process Payment
+                    </button>
+                </div>
+            </form>
         </div>
     </div>
 </div>
@@ -550,7 +642,33 @@ function exportReport() {
 document.addEventListener('DOMContentLoaded', function() {
     refreshInterval = setInterval(refreshDashboard, 30000);
     initializeCharts();
+    initializeQuickPayment();
 });
+
+function initializeQuickPayment() {
+    // Handle quick payment button clicks
+    document.querySelectorAll('.quick-payment-btn').forEach(btn => {
+        btn.addEventListener('click', function() {
+            const loanId = this.dataset.loanId;
+            const loanNumber = this.dataset.loanNumber;
+            const clientName = this.dataset.clientName;
+            const outstanding = this.dataset.outstanding;
+            const nextPayment = this.dataset.nextPayment;
+
+            // Populate modal
+            document.getElementById('modal-loan-id').value = loanId;
+            document.getElementById('modal-loan-number').textContent = loanNumber;
+            document.getElementById('modal-client-name').textContent = clientName;
+            document.getElementById('modal-outstanding').textContent = '$' + parseFloat(outstanding).toFixed(2);
+            document.getElementById('modal-next-payment').textContent = '$' + parseFloat(nextPayment).toFixed(2);
+            document.getElementById('payment_amount').value = parseFloat(nextPayment).toFixed(2);
+
+            // Show modal
+            const modal = new bootstrap.Modal(document.getElementById('quickPaymentModal'));
+            modal.show();
+        });
+    });
+}
 
 function initializeCharts() {
     // Branch Portfolio Chart
