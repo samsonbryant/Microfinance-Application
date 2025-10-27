@@ -48,7 +48,8 @@
         }
     @endphp
 
-    <!-- Real-time Financial Metrics Sidebar -->
+    <!-- Real-time Financial Metrics Sidebar (Admin & Branch Manager Only) -->
+    @if($role !== 'loan_officer' && $role !== 'borrower')
     <div class="sidebar-financial-metrics">
         <div class="metrics-header">
             <h6><i class="fas fa-chart-line me-2"></i>Live Financial Metrics</h6>
@@ -203,6 +204,7 @@
             </div>
         </div>
     </div>
+    @endif
     
     <nav class="sidebar-nav">
         <ul class="nav-list">
@@ -635,13 +637,23 @@
             @elseif($role === 'loan_officer')
                 <!-- Loan Officer Menu -->
                 <li class="nav-section">
-                    <span class="nav-section-title">Loan Operations</span>
+                    <span class="nav-section-title">Client Management</span>
                 </li>
                 <li class="nav-item">
                     <a href="{{ route('clients.index') }}" class="nav-link {{ request()->routeIs('clients.*') ? 'active' : '' }}">
                         <i class="fas fa-users"></i>
                         <span class="nav-text">My Clients</span>
                     </a>
+                </li>
+                <li class="nav-item">
+                    <a href="{{ route('kyc-documents.index') }}" class="nav-link {{ request()->routeIs('kyc-documents.*') ? 'active' : '' }}">
+                        <i class="fas fa-id-card"></i>
+                        <span class="nav-text">KYC Documents</span>
+                    </a>
+                </li>
+                
+                <li class="nav-section">
+                    <span class="nav-section-title">Loan Operations</span>
                 </li>
                 <li class="nav-item">
                     <a href="{{ route('loan-applications.index') }}" class="nav-link {{ request()->routeIs('loan-applications.*') ? 'active' : '' }}">
@@ -656,15 +668,25 @@
                     </a>
                 </li>
                 <li class="nav-item">
-                    <a href="{{ route('collections.index') }}" class="nav-link {{ request()->routeIs('collections.*') ? 'active' : '' }}">
-                        <i class="fas fa-credit-card"></i>
-                        <span class="nav-text">Collections</span>
+                    <a href="{{ route('collaterals.index') }}" class="nav-link {{ request()->routeIs('collaterals.*') ? 'active' : '' }}">
+                        <i class="fas fa-gem"></i>
+                        <span class="nav-text">Collaterals</span>
+                    </a>
+                </li>
+                
+                <li class="nav-section">
+                    <span class="nav-section-title">Collections</span>
+                </li>
+                <li class="nav-item">
+                    <a href="{{ route('loan-repayments.index') }}" class="nav-link {{ request()->routeIs('loan-repayments.*') ? 'active' : '' }}">
+                        <i class="fas fa-money-check-alt"></i>
+                        <span class="nav-text">Loan Repayments</span>
                     </a>
                 </li>
                 <li class="nav-item">
-                    <a href="{{ route('payments.index') }}" class="nav-link {{ request()->routeIs('payments.*') ? 'active' : '' }}">
-                        <i class="fas fa-money-bill-wave"></i>
-                        <span class="nav-text">Payments</span>
+                    <a href="{{ route('collections.index') }}" class="nav-link {{ request()->routeIs('collections.*') ? 'active' : '' }}">
+                        <i class="fas fa-credit-card"></i>
+                        <span class="nav-text">Collections</span>
                     </a>
                 </li>
                 

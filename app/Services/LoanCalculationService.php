@@ -135,7 +135,8 @@ class LoanCalculationService
     }
 
     /**
-     * Update loan with calculated values
+     * Update loan with calculated values using SIMPLE INTEREST
+     * Simple Interest = Principal × (Rate / 100)
      */
     public function updateLoanCalculations(Loan $loan)
     {
@@ -154,12 +155,40 @@ class LoanCalculationService
         }
         
         try {
-            $calculation = $this->calculateAmortizationSchedule(
-                $principal,
-                $interestRate,
-                $termMonths,
-                $loan->disbursement_date ?? now()
-            );
+            // Use SIMPLE interest calculation: Principal × (Rate / 100)
+            $simpleInterestCalc = $this->calculateSimpleInterest($principal, $interestRate);
+            
+            $totalAmount = $simpleInterestCalc['total_amount'];
+            $interestAmount = $simpleInterestCalc['interest_amount'];
+            $monthlyPayment = $totalAmount / $termMonths;
+            
+            // Build simple repayment schedule
+            $schedule = [];
+            $balance = $totalAmount;
+            $startDate = $loan->disbursement_date ?? now();
+            
+            for ($month = 1; $month <= $termMonths; $month++) {
+                $dueDate = Carbon::parse($startDate)->addMonths($month);
+                $payment = round($monthlyPayment, 2);
+                $balance -= $payment;
+                
+                $schedule[] = [
+                    'payment_number' => $month,
+                    'due_date' => $dueDate,
+                    'payment_amount' => $payment,
+                    'principal' => round($principal / $termMonths, 2),
+                    'interest' => round($interestAmount / $termMonths, 2),
+                    'balance' => round(max($balance, 0), 2),
+                    'status' => 'pending',
+                ];
+            }
+            
+            $calculation = [
+                'monthly_payment' => round($monthlyPayment, 2),
+                'total_interest' => $interestAmount,
+                'total_amount' => $totalAmount,
+                'schedule' => $schedule,
+            ];
             
             // Use withoutEvents() to prevent infinite observer loops
             $loan->withoutEvents(function () use ($loan, $calculation) {

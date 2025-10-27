@@ -137,23 +137,38 @@ class Loan extends Model
     }
 
     // Methods
-    public function calculateMonthlyPayment(): float
+    /**
+     * Calculate simple interest: Principal × Interest Rate (%)
+     * This is a straightforward percentage of the principal amount
+     */
+    public function calculateTotalInterest(): float
     {
-        if ($this->amount <= 0 || $this->interest_rate <= 0 || $this->term_months <= 0) {
+        if ($this->amount <= 0 || $this->interest_rate <= 0) {
             return 0;
         }
 
-        $monthlyRate = $this->interest_rate / 100 / 12;
-        $numerator = $this->amount * $monthlyRate * pow(1 + $monthlyRate, $this->term_months);
-        $denominator = pow(1 + $monthlyRate, $this->term_months) - 1;
-        
-        return $denominator > 0 ? $numerator / $denominator : 0;
+        // Simple interest: Principal × (Rate / 100)
+        return $this->amount * ($this->interest_rate / 100);
     }
 
-    public function calculateTotalInterest(): float
+    /**
+     * Calculate total amount: Principal + Interest
+     */
+    public function calculateTotalAmount(): float
     {
-        $monthlyPayment = $this->calculateMonthlyPayment();
-        return ($monthlyPayment * $this->term_months) - $this->amount;
+        return $this->amount + $this->calculateTotalInterest();
+    }
+
+    /**
+     * Calculate monthly payment: Total Amount ÷ Term
+     */
+    public function calculateMonthlyPayment(): float
+    {
+        if ($this->term_months <= 0) {
+            return 0;
+        }
+
+        return $this->calculateTotalAmount() / $this->term_months;
     }
 
     public function isOverdue(): bool
