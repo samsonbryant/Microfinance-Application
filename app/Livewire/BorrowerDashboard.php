@@ -40,7 +40,7 @@ class BorrowerDashboard extends Component
 
         // Get loans with real-time data
         $this->loans = $client->loans()
-            ->with(['collaterals', 'repayments'])
+            ->with(['collateral', 'transactions'])
             ->latest()
             ->get();
 

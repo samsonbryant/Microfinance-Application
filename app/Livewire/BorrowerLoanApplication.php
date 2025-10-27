@@ -22,10 +22,10 @@ class BorrowerLoanApplication extends Component
     public $loan_products = [];
     public $selected_product = null;
     
-    // Calculated fields
-    public $calculated_interest = 0;
-    public $calculated_total = 0;
-    public $calculated_monthly = 0;
+    // Calculated fields (ensure they're numeric)
+    public float $calculated_interest = 0;
+    public float $calculated_total = 0;
+    public float $calculated_monthly = 0;
     
     // Validation state
     public $showPreview = false;

@@ -34,7 +34,7 @@ class BorrowerReportController extends Controller
         $toDate = $request->to_date ?? now()->toDateString();
 
         // Get borrower's loans data
-        $loans = $client->loans()->with('repayments')->get();
+        $loans = $client->loans()->with('transactions')->get();
         $activeLoans = $loans->whereIn('status', ['active', 'disbursed']);
         
         // Calculate loan statistics

@@ -109,7 +109,7 @@ class BorrowerController extends Controller
     {
         $this->authorize('view', $loan);
         
-        $loan->load(['collaterals', 'repayments', 'transactions']);
+        $loan->load(['collateral', 'transactions']);
         
         return view('borrower.loans.show', compact('loan'));
     }
