@@ -26,3 +26,10 @@ fly.toml
 **/.DS_Store
 **/Thumbs.db
 public/hot
+
+# 3. IMPORTANT: Include these essential files
+!database/migrations
+!database/seeders
+!database/factories
+!database/*.sql
+!database/*.php
