@@ -1,47 +1,28 @@
-# Dependencies
-/node_modules
-/vendor
+# excludes from the docker image/build
 
-# Environment
-.env
-.env.backup
-.env.production
+# 1. Ignore Laravel-specific files we don't need
+bootstrap/cache/*
+storage/framework/cache/*
+storage/framework/sessions/*
+storage/framework/views/*
+storage/logs/*
+*.env*
+.rr.yml
+rr
+frankenphp
+vendor
 
-# IDE
-/.idea
-/.vscode
-*.swp
-*.swo
-*~
-
-# OS
-.DS_Store
-Thumbs.db
-
-# Git
-.git
-.gitignore
-.gitattributes
-
-# Testing
-/tests
-/phpunit.xml
-/.phpunit.result.cache
-
-# Documentation
-*.md
-!README.md
-
-# Build artifacts
-/public/hot
-/public/storage
-/storage/*.key
-
-# Logs
-/storage/logs/*
-!/storage/logs/.gitignore
-
-# Temporary files
-/tmp
-*.log
-
+# 2. Ignore common files/directories we don't need
+fly.toml
+.vscode
+.idea
+**/*node_modules
+**.git
+**.gitignore
+**.gitattributes
+**.sass-cache
+**/*~
+**/*.log
+**/.DS_Store
+**/Thumbs.db
+public/hot

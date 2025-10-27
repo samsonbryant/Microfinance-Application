@@ -1,4 +1,4 @@
-# fly.toml app configuration file generated for microfinance-laravel on 2025-10-27T08:09:17Z
+# fly.toml app configuration file generated for microfinance-laravel on 2025-10-27T08:40:33Z
 #
 # See https://fly.io/docs/reference/configuration/ for information about how to use this file.
 #
@@ -8,17 +8,12 @@ primary_region = 'iad'
 console_command = 'php /var/www/html/artisan tinker'
 
 [build]
-  [build.args]
-    NODE_VERSION = '18'
-    PHP_VERSION = '8.2'
 
 [env]
   APP_ENV = 'production'
   LOG_CHANNEL = 'stderr'
   LOG_LEVEL = 'info'
   LOG_STDERR_FORMATTER = 'Monolog\Formatter\JsonFormatter'
-  SESSION_DRIVER = 'cookie'
-  SESSION_SECURE_COOKIE = 'true'
 
 [http_service]
   internal_port = 8080
