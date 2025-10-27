@@ -126,25 +126,31 @@ class BorrowerLoanApplication extends Component
                 ]),
             ]);
 
-            // Calculate loan details (done by LoanCreationObserver)
-            // The observer will automatically calculate interest and schedule
+            // Log activity (with error handling)
+            try {
+                activity()
+                    ->performedOn($loan)
+                    ->causedBy(auth()->user())
+                    ->log("Borrower submitted loan application for $" . number_format($this->amount, 2));
+            } catch (\Exception $e) {
+                \Log::warning('Activity log failed: ' . $e->getMessage());
+            }
 
-            // Log activity
-            activity()
-                ->performedOn($loan)
-                ->causedBy(auth()->user())
-                ->log("Borrower submitted loan application for $" . number_format($this->amount, 2));
+            // Broadcast event is handled by LoanObserver automatically
+            // No need to broadcast here to avoid duplication
 
-            // Broadcast event for real-time updates
-            broadcast(new LoanApplicationSubmitted($loan))->toOthers();
-
-            // Notify loan officer
-            $loanOfficers = \App\Models\User::role('loan_officer')
-                ->where('branch_id', $this->client->branch_id)
-                ->get();
-            
-            foreach ($loanOfficers as $officer) {
-                $officer->notify(new \App\Notifications\LoanApplicationNotification($loan));
+            // Notify loan officers (with error handling)
+            try {
+                $loanOfficers = \App\Models\User::whereHas('roles', function($q) {
+                    $q->where('name', 'loan_officer');
+                })->where('branch_id', $this->client->branch_id)->get();
+                
+                foreach ($loanOfficers as $officer) {
+                    $officer->notify(new \App\Notifications\LoanApplicationNotification($loan));
+                }
+            } catch (\Exception $e) {
+                \Log::warning('Notification failed: ' . $e->getMessage());
+                // Don't fail the loan submission if notifications fail
             }
 
             DB::commit();
@@ -160,6 +166,7 @@ class BorrowerLoanApplication extends Component
         } catch (\Exception $e) {
             DB::rollback();
             \Log::error('Borrower loan application error: ' . $e->getMessage());
+            \Log::error('Stack trace: ' . $e->getTraceAsString());
             session()->flash('error', 'Error submitting application: ' . $e->getMessage());
         }
     }
