@@ -1,4 +1,11 @@
-<div class="expense-form-live">
+<div>
+    @if (session()->has('success'))
+        <div class="alert alert-success alert-dismissible fade show" role="alert">
+            <i class="fas fa-check-circle"></i> {{ session('success') }}
+            <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+        </div>
+    @endif
+
     <form wire:submit.prevent="save">
         <div class="row g-3">
             <!-- Transaction Date -->
@@ -109,40 +116,5 @@
             </div>
         </div>
     </form>
-
-    @if (session()->has('success'))
-        <div class="alert alert-success alert-dismissible fade show mt-3" role="alert">
-            <i class="fas fa-check-circle"></i> {{ session('success') }}
-            <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
-        </div>
-    @endif
 </div>
-
-<style>
-    .expense-form-live {
-        font-family: 'Inter', sans-serif;
-    }
-    
-    .form-label {
-        margin-bottom: 0.5rem;
-        font-size: 0.9rem;
-    }
-    
-    .form-control, .form-select {
-        border-radius: 8px;
-        border: 1px solid #E5E7EB;
-        padding: 0.625rem 0.875rem;
-    }
-    
-    .form-control:focus, .form-select:focus {
-        border-color: #3B82F6;
-        box-shadow: 0 0 0 0.2rem rgba(59, 130, 246, 0.1);
-    }
-    
-    .btn {
-        border-radius: 8px;
-        font-weight: 500;
-        padding: 0.625rem 1.25rem;
-    }
-</style>
 
